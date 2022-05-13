@@ -8,7 +8,7 @@ from base import BaseModel
 from model.switch_transformer import SwitchTransformerLayer, SwitchTransformer, SwitchFeedForward
 from labml_nn.transformers.feed_forward import FeedForward
 from labml_nn.transformers.mha import MultiHeadAttention
-from utils import board_to_representation, word_to_move, move_to_word
+from utils import board_to_representation, move_to_word
 
 
 class AttentionChess2(BaseModel):

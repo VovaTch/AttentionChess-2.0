@@ -4,6 +4,7 @@ import shutil
 import yaml
 from pathlib import Path
 from itertools import repeat
+import numpy as np
 
 import torch
 import pandas as pd
@@ -84,3 +85,10 @@ class MetricTracker:
 
     def result(self):
         return dict(self._data.average)
+    
+def num_param(model: torch.nn.Module):
+    
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    
+    return params

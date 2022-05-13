@@ -6,6 +6,7 @@ import chess
 import copy
 
 from model import AttentionChess2
+from utils import num_param
 
 
 class test_model(unittest.TestCase):
@@ -16,6 +17,8 @@ class test_model(unittest.TestCase):
         self.model = self.model.to(self.device)
         self.board = chess.Board()
         self.model.eval()
+        num_param_tot = num_param(self.model)
+        print(f'Number of parameters is {num_param_tot:,}.')
         return super().setUp()
     
     def test_forward_2_boards(self):
@@ -44,7 +47,7 @@ class test_model(unittest.TestCase):
         # Run the boards through the net
         board_list = [copy.deepcopy(self.board), copy.deepcopy(self.board)]
         output_dict = self.model(board_list)
-        policy_list, value_list = self.model.post_process(board_list, output_dict, print_output=True)
+        policy_list, value_list = self.model.post_process(board_list, output_dict, print_output=False)
         
         # Check sizes
         self.assertEqual(len(policy_list), 2)
