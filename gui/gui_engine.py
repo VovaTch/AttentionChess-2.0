@@ -4,7 +4,7 @@ import chess
 import pygame as p
 import copy
 
-from utils.util import board_to_embedding_coord, word_to_move
+from utils import board_to_embedding_coord, word_to_move
 
 
 class GameState:

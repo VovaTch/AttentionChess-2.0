@@ -38,7 +38,7 @@ def board_to_representation(board: chess.Board) -> torch.Tensor:
             # En passant    
             if board.ep_square:
                 ep_square = np.floor(board.ep_square)
-                pos_total[ep_square, piece - 1 + color_add] = 0.33
+                pos_total[int(ep_square), piece - 1 + color_add] = 0.33
             
             # Castling
             if piece == 6 and not color and board.has_castling_rights(chess.WHITE):
@@ -129,4 +129,37 @@ def word_to_move(word) -> chess.Move:
 
     return move
     
-    
+
+def board_to_embedding_coord(board: chess.Board):
+    """
+    Used in AttaChess 1, converts a board to embedding coordinates, used here for play_game_gui.py
+    """
+
+    # Python chess uses flattened representation of the board
+    x = torch.zeros(64, dtype=torch.float)
+    for pos in range(64):
+        piece = board.piece_type_at(pos)
+        if piece:
+            color = int(bool(board.occupied_co[chess.BLACK] & chess.BB_SQUARES[pos]))
+            col = int(pos % 8)
+            row = int(pos / 8)
+            x[row * 8 + col] = -piece if color else piece
+    x = x.reshape(8, 8)
+    x += 6
+
+    if board.ep_square:
+        coordinates = (np.floor(board.ep_square / 8), board.ep_square % 8)
+        if x[int(coordinates[0]), int(coordinates[1])] == 5:
+            x[int(coordinates[0]), int(coordinates[1])] = 16
+        else:
+            x[int(coordinates[0]), int(coordinates[1])] = 17
+
+    # Check for castling rights
+    if board.has_castling_rights(chess.WHITE):
+        x[0, 4] = 14
+    if board.has_castling_rights(chess.BLACK):
+        x[7, 4] = 15
+
+    x += (not board.turn) * 18
+    x = x.int()
+    return x

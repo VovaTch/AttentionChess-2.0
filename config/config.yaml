@@ -1,8 +1,8 @@
-name: "Mnist_LeNet"
+name: "AttentionChess2"
 n_gpu: 1
 
 arch: 
-    type: "MnistModel"
+    type: "AttentionChess2"
     args:
       hidden_dim: 256
 

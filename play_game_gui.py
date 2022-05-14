@@ -8,12 +8,12 @@ import pathlib
 
 import torch
 
-import model.attchess as module_arch
+import model.model as module_arch
 from gui.gui_engine import GameState
-from utils.util import prepare_device, board_to_embedding_coord, move_to_coordinate
+from utils import prepare_device, board_to_embedding_coord
 from parse_config import ConfigParser
-from model.score_functions import ScoreWinFast
-from data_loaders.mcts import MCTS
+# from model.score_functions import ScoreWinFast
+# from data_loaders.mcts import MCTS
 
 DIMENSION = 8
 IMAGES = {}
@@ -284,11 +284,12 @@ def main(args, config):
 
     # Load network
     engine = config.init_obj('arch', module_arch)
-    checkpoint = torch.load(config.resume, map_location=torch.device('cpu'))
-    engine.load_state_dict(checkpoint['state_dict'])
+    if config.resume is not None:
+        checkpoint = torch.load(config.resume, map_location=torch.device('cpu'))
+        engine.load_state_dict(checkpoint['state_dict'])
     engine = engine.to(device).eval()   
     logger.info('Engine loaded')
-    mcts = MCTS(engine, engine, args.leaves)
+    # mcts = MCTS(engine, engine, args.leaves)
 
     # Prepare the screen of the gui
     screen = p.display.set_mode((args.width, args.height))
@@ -308,7 +309,6 @@ def main(args, config):
     promotion_flag = False
     selected_piece = None  # Selected piece for promotion
     undo_flag = False
-    score_function = ScoreWinFast(100)
     flip_board = False
     endgame_flag = False
 
@@ -346,23 +346,10 @@ def main(args, config):
                     print('[INFO] Bot move')
 
                     # Run the network and get a move sample
-                    outputs_legal, outputs_class_vec, value = engine([gs.board])
-                    legal_move_list, cls_vec, value_full = engine.post_process(outputs_legal, outputs_class_vec, 
-                                                                               value, num_pruned_moves=5)
-                    legal_move_san = {gs.board.san(legal_move): float(cls_prob) for legal_move, cls_prob
-                                      in zip(legal_move_list[0], cls_vec[0])}
-                    print(f'[INFO] Probabilities for moves: {legal_move_san}')
-                    
-
-                    # Print value
-                    value_np = value_full[0].detach().numpy() / 100
-                    print(f'[INFO] Board value: {value_np:.5f}')
-
-                    sample_node = mcts.run(gs.board)
-                    sample = sample_node.select_action(temperature=0.0, print_action_count=True)
-
-                    print(f'[INFO] Move in uci: {sample}')
-                    gs.make_move_san(sample)
+                    output_dict = engine([gs.board])
+                    policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
+                    best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
+                    gs.make_move_san(best_move)
 
                     animate_move(screen, gs, args, gs.board.peek(), clock, flip_board)
                     undo_flag = False
@@ -453,9 +440,9 @@ def main(args, config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Simple chess board for playing the bot.')
-    parser.add_argument('-c', '--config', default='config/config_s1.json', type=str,
+    parser.add_argument('-c', '--config', default='config/config.yaml', type=str,
                         help='config file path (default: None)')
-    parser.add_argument('-r', '--resume', default='test_model.pth', type=str,
+    parser.add_argument('-r', '--resume', default=None, type=str,
                         help='path to latest checkpoint (default: None)')
     parser.add_argument('-d', '--device', default='cuda', type=str,
                         help='indices of GPUs to enable (default: all)')
