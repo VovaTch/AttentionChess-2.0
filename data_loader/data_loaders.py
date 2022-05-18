@@ -8,11 +8,11 @@ class LichessLoader(BaseDataLoader):
     """
     The dataloader of the Lichess dataset
     """
-    def __init__(self, batch_size, collate_fn, data_dir='data/lichess_data.pgn',
+    def __init__(self, batch_size, collate_fn, dataset_path='data/lichess_data.pgn',
                  shuffle=True, validation_split=0.0, num_workers=0, training=True, base_multiplier=1.0):
 
-        self.dataset_path = data_dir
-        self.dataset = LichessDataset(data_dir, base_multiplier=base_multiplier)
+        self.dataset_path = dataset_path
+        self.dataset = LichessDataset(dataset_path, base_multiplier=base_multiplier)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=collate_fn)
 
 

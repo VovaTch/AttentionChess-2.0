@@ -46,22 +46,31 @@ class Trainer(BaseTrainer):
         
         if self.config['lr_scheduler']['type'] == 'OneCycleLR':
             oclr_scheduler = copy.deepcopy(self.lr_scheduler)
-        
         self.logger.debug(Fore.YELLOW + '\n -------------- << T R A I N I N G >> --------------\n' + Fore.RESET)
         
-        for batch_idx, (data, target) in enumerate(self.data_loader):
-            data, target = data.to(self.device), target.to(self.device)
+        for batch_idx, target_dict in enumerate(self.data_loader):
+            
+            for target in target_dict:
+                target_dict[target] = target_dict[target].to(self.device)
 
             self.optimizer.zero_grad()
-            output = self.model(data)
-            loss = self.criterion(output, target)
+            data = target_dict['board']
+            output = self.model.forward_raw(data)
+            loss_dict = self.criterion(output, target_dict)
+            
+            loss = sum([loss_dict[loss_type] * self.config['loss_weights'][loss_type]
+                        for loss_type in self.config['loss_weights']])
+            loss += sum([loss_dict[loss_type] * self.config['loss_weights'][loss_type[:-6]]
+                        for loss_type in loss_dict.keys() if loss_type[:-6] in self.config['loss_weights']])
+            
             loss.backward()
+            
             self.optimizer.step()
 
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:
-                self.train_metrics.update(met.__name__, met(output, target))
+                self.train_metrics.update(met.__name__, met(self.criterion, output, target_dict))
 
             if batch_idx % self.log_step == 0:
                 self.logger.debug(Fore.GREEN + f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss:' + 

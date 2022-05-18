@@ -5,28 +5,43 @@ arch:
     type: "AttentionChess2"
     args:
       hidden_dim: 256
+      num_encoders: 6
+      num_experts: 4
+      expert_dim: 2048
+      dropout: 0.1
+      aux_outputs: true
 
 data_loader: 
-    type: "MnistDataLoader"
+    type: "LichessLoader"
     args:
-        data_dir: "data_loader/datasets/"
+        dataset_path: 'data/lichess_data.pgn'
         batch_size: 128
         shuffle: true
-        validation_split: 0.1
-        num_workers: 2
+        validation_split: 0.0
+        num_workers: 0
+        base_multiplier: 0.95
     
 optimizer: 
     type: "AdamW"
     args:
         lr: 0.001
-        weight_decay: 0
+        weight_decay: 0.000001
         amsgrad: true
     
-loss: "nll_loss"
+loss: 
+    type: "Criterion"
+    args:
+        losses:
+            -  "loss_policy"
+            -  "loss_value"
+
+loss_weights:
+    policy: 1
+    value: 2
 
 metrics: 
-  - accuracy
-  - top_k_acc
+    -  "loss_policy"
+    -  "loss_value"
 
 # lr_scheduler: 
 #     type: "StepLR"
@@ -38,10 +53,11 @@ lr_scheduler:
     type: "OneCycleLR"
     args:
         max_lr: 0.01
-        epochs: 1
+        epochs: 100
         steps_per_epoch: 5000
 
 trainer: 
+
     epochs: 100
 
     save_dir: "saved/"

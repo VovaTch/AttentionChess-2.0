@@ -1,20 +1,19 @@
 import torch
 
+from model.loss import Criterion
 
-def accuracy(output, target):
-    with torch.no_grad():
-        pred = torch.argmax(output, dim=1)
-        assert pred.shape[0] == len(target)
-        correct = 0
-        correct += torch.sum(pred == target).item()
-    return correct / len(target)
-
-
-def top_k_acc(output, target, k=3):
-    with torch.no_grad():
-        pred = torch.topk(output, k, dim=1)[1]
-        assert pred.shape[0] == len(target)
-        correct = 0
-        for i in range(k):
-            correct += torch.sum(pred[:, i] == target).item()
-    return correct / len(target)
+@torch.no_grad()
+def loss_policy(criterion: Criterion, 
+                prediction_dict: dict[str, torch.Tensor], 
+                target_dict: dict[str, torch.Tensor]):
+    """Goes for the criterion for the loss"""
+    loss = criterion.loss_policy(prediction_dict, target_dict)
+    return loss['policy']
+    
+@torch.no_grad()
+def loss_value(criterion: Criterion, 
+               prediction_dict: dict[str, torch.Tensor], 
+               target_dict: dict[str, torch.Tensor]):
+    """Goes for the criterion for the loss"""
+    loss = criterion.loss_value(prediction_dict, target_dict)
+    return loss['value']

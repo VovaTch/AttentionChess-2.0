@@ -1,7 +1,9 @@
 import argparse
 import collections
+
 import torch
 import numpy as np
+
 import data_loader.data_loaders as module_data
 import model.loss as module_loss
 import model.metric as module_metric
@@ -9,6 +11,7 @@ import model.model as module_arch
 from parse_config import ConfigParser
 from trainer import Trainer
 from utils import prepare_device
+from data_loader.data_loaders import collate_fn
 
 
 # fix random seeds for reproducibility
@@ -22,7 +25,7 @@ def main(config):
     logger = config.get_logger('train')
 
     # setup data_loader instances
-    data_loader = config.init_obj('data_loader', module_data)
+    data_loader = config.init_obj('data_loader', module_data, collate_fn=collate_fn)
     valid_data_loader = data_loader.split_validation()
 
     # build model architecture, then print to console
@@ -36,7 +39,7 @@ def main(config):
         model = torch.nn.DataParallel(model, device_ids=device_ids)
 
     # get function handles of loss and metrics
-    criterion = getattr(module_loss, config['loss'])
+    criterion = config.init_obj('loss', module_loss)
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
     # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler

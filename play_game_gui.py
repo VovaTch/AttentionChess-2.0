@@ -442,7 +442,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Simple chess board for playing the bot.')
     parser.add_argument('-c', '--config', default='config/config.yaml', type=str,
                         help='config file path (default: None)')
-    parser.add_argument('-r', '--resume', default=None, type=str,
+    parser.add_argument('-r', '--resume', default='model_best.pth', type=str,
                         help='path to latest checkpoint (default: None)')
     parser.add_argument('-d', '--device', default='cuda', type=str,
                         help='indices of GPUs to enable (default: all)')

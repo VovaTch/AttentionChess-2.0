@@ -104,6 +104,7 @@ ENV/
 data/
 input/
 saved/
+*.pth
 
 # editor, os cache directory
 .vscode/

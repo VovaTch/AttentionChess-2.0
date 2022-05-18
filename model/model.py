@@ -71,7 +71,7 @@ class AttentionChess2(BaseModel):
         transformer_input = transformer_input.repeat((1, 1, self.num_heads))
         
         # Transformer
-        mask = torch.zeros((64, 64, boards_flattened.size()[0])).to(self.device) + 1
+        mask = torch.zeros((64, 64, boards_flattened.size()[0])).to(transformer_input.device) + 1
         transformer_output, memory, _, _, _, _ = self.switch_transformer(transformer_input, mask) # TODO: Program Aux outputs in
         transformer_output = transformer_output.permute((1, 0, 2)) # To get BS x 64 x Hidden_dim
         
@@ -115,7 +115,8 @@ class AttentionChess2(BaseModel):
             policy_list.append(ind_policy_dict)
             
             # Extract the value
-            value_list.append(torch.tanh(output_dict['value'][num_idx]).item())
+            turn_value = 1 if board.turn else -1
+            value_list.append(torch.tanh(output_dict['value'][num_idx]).item() * turn_value)
             
         # In case we want to print the value
         if print_output:
@@ -123,9 +124,8 @@ class AttentionChess2(BaseModel):
                 print(f'Board value: {value:.3f}')
                 
                 # Print the policy probabilities
-                for move, prob in policy.items():
-                    turn_str = 'white\'s' if board.turn else 'black\'s'
-                    print(f'With {turn_str} turn: {move} with probability {prob:.3f}')
+                policy_present = {key: round(value, 3) for key, value in policy.items()}
+                print(f'Board policy: {policy_present}')
                     
         return policy_list, value_list
         

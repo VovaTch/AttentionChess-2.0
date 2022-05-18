@@ -92,3 +92,10 @@ def num_param(model: torch.nn.Module):
     params = sum([np.prod(p.size()) for p in model_parameters])
     
     return params
+
+def extract_device(model: torch.nn.Module):
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    for parameter in model_parameters:
+        device = parameter.device
+        break
+    return device
