@@ -12,9 +12,9 @@ arch:
       aux_outputs: true
 
 data_loader: 
-    type: "LichessLoader"
+    type: "BoardsLoader"
     args:
-        dataset_path: 'data/lichess_data.pgn'
+        dataset_path: 'data/boards_data/'
         batch_size: 128
         shuffle: true
         validation_split: 0.0
@@ -61,7 +61,7 @@ trainer:
     epochs: 100
 
     save_dir: "saved/"
-    save_period: 1
+    save_period: 20
     verbosity: 2
     
     monitor: "min val_loss"

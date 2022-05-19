@@ -1,7 +1,8 @@
 import torch
 from base import BaseDataLoader
 
-from .datasets import LichessDataset
+from .datasets import LichessDataset,\
+                      BoardsDataset
 
 
 class LichessLoader(BaseDataLoader):
@@ -13,6 +14,17 @@ class LichessLoader(BaseDataLoader):
 
         self.dataset_path = dataset_path
         self.dataset = LichessDataset(dataset_path, base_multiplier=base_multiplier)
+        super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=collate_fn)
+        
+class BoardsLoader(BaseDataLoader):
+    """
+    The dataloader of the Boards dataset
+    """
+    def __init__(self, batch_size, collate_fn, dataset_path='data/boards_data/',
+                shuffle=True, validation_split=0.0, num_workers=0, training=True, base_multiplier=1.0):
+
+        self.dataset_path = dataset_path
+        self.dataset = BoardsDataset(dataset_path=dataset_path, base_multiplier=base_multiplier)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=collate_fn)
 
 
