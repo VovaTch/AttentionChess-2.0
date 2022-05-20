@@ -52,16 +52,16 @@ metrics:
 lr_scheduler:
     type: "OneCycleLR"
     args:
-        max_lr: 0.01
-        epochs: 100
-        steps_per_epoch: 5000
+        max_lr: 0.001
+        epochs: 1
+        steps_per_epoch: 50000
 
 trainer: 
 
-    epochs: 100
+    epochs: 10000
 
     save_dir: "saved/"
-    save_period: 20
+    save_period: 50
     verbosity: 2
     
     monitor: "min val_loss"

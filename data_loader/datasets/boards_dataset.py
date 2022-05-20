@@ -52,9 +52,11 @@ class BoardsDataset(Dataset):
         
         # If we reach the file size limit, load the next file
         if self.position_counter == self.file_len:
+            self.position_counter = 0
             self.current_file = next(self.cycle_iter)
             self.pkl_data = self._load_pkl(self.current_file)
             self.file_len = self.pkl_data[0].size()[0]
+            print(f'Reset position counter, the current file is {self.current_file}')
         
         # Return the sample
         return {'board': board_sample,

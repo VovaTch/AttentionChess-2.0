@@ -105,17 +105,27 @@ class Trainer(BaseTrainer):
         self.logger.debug(Fore.LIGHTRED_EX + '\n -------------- << E V A L U A T I O N >> --------------\n' + Fore.RESET)
         
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
+            for batch_idx, target_dict in enumerate(self.data_loader):
+            
+                for target in target_dict:
+                    target_dict[target] = target_dict[target].to(self.device)
 
-                output = self.model(data)
-                loss = self.criterion(output, target)
+                self.optimizer.zero_grad()
+                data = target_dict['board']
+                output = self.model.forward_raw(data)
+                loss_dict = self.criterion(output, target_dict)
+                
+                loss = sum([loss_dict[loss_type] * self.config['loss_weights'][loss_type]
+                            for loss_type in self.config['loss_weights']])
+                loss += sum([loss_dict[loss_type] * self.config['loss_weights'][loss_type[:-6]]
+                            for loss_type in loss_dict.keys() if loss_type[:-6] in self.config['loss_weights']])
 
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
                 self.valid_metrics.update('loss', loss.item())
                 for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(output, target))
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
+                    self.valid_metrics.update(met.__name__, met(self.criterion, output, target_dict))
+
+                #self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 
         # add histogram of model parameters to the tensorboard
         for name, p in self.model.named_parameters():

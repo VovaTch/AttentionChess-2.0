@@ -1,4 +1,3 @@
-from jmespath import search
 import torch
 import torch.nn.functional as F
 import chess
@@ -6,9 +5,8 @@ import copy
 import numpy as np
 import math
 
-from yaml import NodeEvent
-
 from model.model import AttentionChess2
+from utils import move_to_word
 
 
 
@@ -19,17 +17,17 @@ class Node:
         Initiates the node for the MCTS
         """
         
-        self.device = device
-        self.prior_prob = prior_prob
-        self.turn = board.turn
+        self.device: str = device
+        self.prior_prob: float = prior_prob
+        self.turn: bool = board.turn
         self.half_move = None  # Used to compute the cost function
         
-        self.children = {}
-        self.visit_count = 0
-        self.value_candidates = {}
-        self.value_sum = 0.0
-        self.board = board
-        self.use_dir = use_dir
+        self.children: dict[str, Node] = {}
+        self.visit_count: int = 0
+        self.value_candidates: dict[str, float] = {}
+        self.value_sum: float = 0.0
+        self.board: chess.Board = board
+        self.use_dir: bool = use_dir
         
     def expanded(self):
         """
@@ -37,11 +35,18 @@ class Node:
         """
         return len(self.children) > 0
     
-    def select_action(self, temperature = 0, print_action_count=False):
+    def visit_count(self) -> dict[str: int]:
+        """
+        Create a dictionary of visit counts per child move. The format is 'san_move': visit count.
+        """
+        visit_count_dict = {move: child.visit_count for move, child in self.children.items()}
+        return visit_count_dict
+    
+    def select_action(self, temperature: float=0.0, print_action_count: bool=False):
         """
         Select action according to the visit count distribution and the temperature.
         """
-        visit_counts = torch.tensor([child.visit_count for child in self.children.values()]).to(self.device)
+        visit_counts = torch.tensor(self.visit_count().values()).float()
         actions = [action for action in self.children.keys()]
         if temperature == 0:
             action = actions[torch.argmax(visit_counts)]
@@ -101,12 +106,12 @@ class Node:
         else:
             return non_none_candidate[min(non_none_candidate, key=non_none_candidate.get)]
         
-    def expand(self, legal_move_list, cls_prob_vec):
+    def expand(self, policy_vec: dict[str, float]):
         """
         Expand the node to include all possible moves.
         """
         
-        for move, prob in zip(legal_move_list, cls_prob_vec):
+        for move, prob in policy_vec.items():
             new_board = copy.deepcopy(self.board)
             
             if type(move) is str:
@@ -115,11 +120,6 @@ class Node:
                 new_board.push(move)
                 
             self.children[self.board.san(move)] = Node(prior_prob=prob, board=new_board, device=self.device, use_dir=self.use_dir)
-            # if self.board.turn:
-            #     self.value_candidates[self.board.san(move)] = - torch.inf
-            # else:
-            #     self.value_candidates[self.board.san(move)] = torch.inf
-            
             self.value_candidates[self.board.san(move)] = None
             
     def find_greedy_value(self, value_multiplier=1.0):
@@ -155,7 +155,7 @@ class Node:
         
         
       
-def ucb_scores(parent, children: dict, dir_noise: bool=False):
+def ucb_scores(parent: Node, children: dict[str, Node], dir_noise: bool=False):
     """
     The score for an action that would transition between the parent and child.
     """
@@ -170,15 +170,14 @@ def ucb_scores(parent, children: dict, dir_noise: bool=False):
         dir_noise_obj = torch.distributions.Dirichlet(torch.tensor([dir_alpha for _ in children.values()]))
         dir_noise_sample = dir_noise_obj.sample()
         
-        for idx, (key, value) in enumerate(prior_scores.items()):
-            prior_scores[key] = x_dir * value + (1 - x_dir) * dir_noise_sample[idx]\
+        for idx, (key, prior_pro_value) in enumerate(prior_scores.items()):
+            prior_scores[key] = (x_dir * prior_pro_value + (1 - x_dir) * dir_noise_sample[idx])\
                 * math.sqrt(parent.visit_count) / (children[key].visit_count + 1)
     
     value_scores = {}
     for move, child in children.items():
         if child.visit_count > 0 and child.value_avg() is not None:
-            value_scores[move] = -torch.tensor(child.value_avg()) \
-                if child.board.turn else torch.tensor(child.value_avg())
+            value_scores[move] = - torch.tensor(child.value_avg())
     
         else:
             value_scores[move] = 0
@@ -210,10 +209,10 @@ class MCTS:
         self.board_value_vec = torch.zeros(0).to(self.device)
         
     @torch.no_grad()
-    def run_engine(self, boards: list):
-        legal_moves_pred, cls_logit_pred, value_raw_pred = self.model_good(boards) if self.model_good_flag else self.model_evil(boards)
-        legal_moves_list, cls_prob_list, _ = self.model_good.post_process(legal_moves_pred, cls_logit_pred, value_raw_pred)
-        return legal_moves_list, cls_prob_list, value_raw_pred
+    def run_engine(self, boards: list[chess.Board]):
+        out_dict = self.model_good(boards) if self.model_good_flag else self.model_evil(boards)
+        policy_list, value_list = self.model_good.post_process(boards, out_dict)
+        return policy_list, value_list
         
     def get_endgame_value(self, board: chess.Board):
         """
@@ -231,8 +230,8 @@ class MCTS:
         root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
         
         # Expand the root node
-        legal_move_list, cls_prob_list, _ = self.run_engine([board])
-        root.expand(legal_move_list[0], cls_prob_list[0])
+        policy_list, _ = self.run_engine([board])
+        root.expand(policy_list)
         
         for _ in range(self.num_sims):
             node = root
@@ -252,15 +251,13 @@ class MCTS:
             
             if value is None:
                 # Expand if game not ended
-                legal_move_list, cls_prob_list, value = self.run_engine([next_board])
-                node.expand(legal_move_list[0], cls_prob_list[0])
+                policy_list, value_list = self.run_engine([next_board])
+                node.expand(policy_list[0])
+                value = torch.atanh(value_list[0])
             else:
                 node.half_move = 1 # Used to compute the value function
                 
-            if type(value) == float:
-                self.backpropagate(search_path, value)
-            else:
-                self.backpropagate(search_path, value[0])
+            self.backpropagate(search_path, value_list[0])
                 
             if verbose:
                 for node in search_path:
@@ -270,44 +267,46 @@ class MCTS:
     
     
     def collect_nodes_for_training(self, node: Node, min_counts = 5):
-        """Consider all nodes that have X or more visits for future training of self play."""
+        """
+        Consider all nodes that have X or more visits for future training of self play.
+        """
         
-        board_collection = [node.board]
-        cls_vec_collection = torch.zeros((1, 256)).to(self.device)
-        board_value_collection = torch.tensor([node.value_avg()]).to(self.device)
+        board_collection: list[chess.Board] = [node.board]
+        policy_collection: torch.Tensor = self._create_policy_vector(node)
+        value_collection: torch.Tensor = torch.tensor([node.value_avg()]).to(self.device)
         
-        for idx, (_, child) in enumerate(node.children.items()):
+        for child in node.children.values():
             
-            cls_vec_collection[0, idx] += child.visit_count
+            # If the visit criteria is met
             if child.visit_count >= min_counts:
-                board_add, cls_vec_add, board_value_add = self.collect_nodes_for_training(child, min_counts=min_counts)
+                
+                board_add, policy_add, value_add = self.collect_nodes_for_training(child, min_counts=min_counts)
                 
                 # Recursivelly add the nodes with the correct count number
                 board_collection.extend(board_add)
-                cls_vec_collection = torch.cat((cls_vec_collection, cls_vec_add), dim=0)
-                board_value_collection = torch.cat((board_value_collection, torch.atanh(board_value_add)), dim=0)
-                                
+                policy_collection = torch.cat((policy_collection, policy_add), dim=0)
+                value_collection = torch.cat((value_collection, value_add), dim=0)
+                
             # Endgame position should be considered as an endgame position by the network.
             game_end, value_end = _is_game_end(child.board)
             if game_end:
                 board_collection.append(child.board)
-                cls_vec_collection = torch.cat((cls_vec_collection, torch.zeros(1, 256).to(self.device)), dim=0)
-                board_value_collection = torch.cat((board_value_collection, torch.tensor([value_end * 5]).to(self.device)), dim=0)
-               
-        cls_vec_collection = F.normalize(cls_vec_collection, p=1, dim=1)
-        return board_collection, cls_vec_collection, torch.tanh(board_value_collection)      
+                policy_collection = torch.cat((policy_collection, torch.zeros(1, 4864).to(self.device)), dim=0)
+                value_collection = torch.cat((value_collection, torch.tensor(value_end).to(self.device)), dim=0)
+        
+        return board_collection, policy_collection, value_collection    
     
     
-    def run_multi(self, boards: list, verbose=False, print_enchors=True):
+    def run_multi(self, boards: list[chess.Board], verbose=False, print_enchors=True):
         
         self.model_good_flag = True
         roots = [Node(board, 0.0, self.device, use_dir=self.use_dir) for board in boards]
         root_boards = [node.board for node in roots]
         
         # Expand every root node
-        legal_move_list, cls_prob_list, _ = self.run_engine(root_boards)
+        policy_list, _  = self.run_engine(root_boards)
         for idx, root in enumerate(roots):
-            root.expand(legal_move_list[idx], cls_prob_list[idx])
+            root.expand(policy_list[idx])
             
         # Create win/loss/draw counters for printing
         white_win_count = 0
@@ -363,18 +362,18 @@ class MCTS:
             # Forward all boards through the net
             if len(board_slice_list) > 0:
                 self.model_good_flag = not self.model_good_flag
-                legal_move_list, cls_prob_list, value = self.run_engine(board_slice_list)
+                policy_list, value_list_out = self.run_engine(board_slice_list)
             
             # Expand every node that didn't reach the end
             node_selection_idx = 0
             for idx, node in enumerate(node_edge_list):
                 if value_list[idx] is None:
-                    node.expand(legal_move_list[node_selection_idx], cls_prob_list[node_selection_idx])
-                    value_list[idx] = value[node_selection_idx]
+                    node.expand(policy_list[node_selection_idx])
+                    value_list[idx] = torch.atanh(value_list_out[node_selection_idx])
                     node_selection_idx += 1
                     
             for idx, search_path in enumerate(search_path_list):
-                self.backpropagate_new(search_path, value_list[idx])
+                self.backpropagate(search_path, value_list[idx])
                 
                 if verbose:
                     for node in search_path:
@@ -387,12 +386,10 @@ class MCTS:
                 
             
 
-    def backpropagate(self, search_path, value, value_multiplier=0.95):
-        
-        half_move_accumilated = 1
+    def backpropagate(self, search_path: list[Node], value: float, value_multiplier: float=0.95):
         
         for node_idx, node in reversed(list(enumerate(search_path))):
-            node.value_sum += value
+            node.value_sum += math.atanh(value)
             
             if node_idx != 0:
                 prior_board = copy.deepcopy(node.board)
@@ -400,21 +397,18 @@ class MCTS:
                 last_move = prior_board.san(node.board.peek())
                 
                 if search_path[node_idx - 1].value_candidates[last_move] is None:
-                    search_path[node_idx - 1].value_candidates[last_move] = value * value_multiplier
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
                 
                 elif not node.board.turn and search_path[node_idx - 1].value_candidates[last_move] > value * value_multiplier:   
-                    search_path[node_idx - 1].value_candidates[last_move] = value * value_multiplier
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
                     
                 elif node.board.turn and search_path[node_idx - 1].value_candidates[last_move] < value * value_multiplier:    
-                    search_path[node_idx - 1].value_candidates[last_move] = value * value_multiplier
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
             
             node.visit_count += 1
             value *= value_multiplier
             
-        # print([node.value_avg() for node in search_path])
-        # print([node.value_max() for node in search_path])
-            
-    def backpropagate_new(self, search_path, value, value_multiplier=1.0):
+    def backpropagate_new(self, search_path: list[Node], value: float, value_multiplier: float=1.0):
         """
         Backpropagation according to the paper that claims that the most greedy leaf should determine the value
         """
@@ -426,7 +420,21 @@ class MCTS:
                 node.value_sum = node.visit_count * value
             else:
                 node.value_sum = node.visit_count * node.find_greedy_value(value_multiplier=value_multiplier)
+                
+    def _create_policy_vector(self, node: Node):
+        """
+        Create a policy vector from a node. Converts the visit count dictionary into a probability vector sized 4864.
+        """
+        policy_vector = torch.zeros((1, 4864)).to(self.device)
+        visit_count_dict = node.visit_count()
+        
+        for move_key, count_value in visit_count_dict.items():
+            move = node.board.parse_san(move_key)
+            word = move_to_word(move)
+            policy_vector[word] = count_value
             
+        policy_vector = F.normalize(policy_vector, p=1)
+        return policy_vector
             
 
 def _is_game_end(board: chess.Board):
