@@ -447,7 +447,7 @@ if __name__ == '__main__':
                         help='path to latest checkpoint (default: None)')
     parser.add_argument('-d', '--device', default='cuda', type=str,
                         help='indices of GPUs to enable (default: all)')
-    parser.add_argument('-l', '--leaves', default=100, type=int, help='Number of leaf nodes for move search')
+    parser.add_argument('-l', '--leaves', default=10, type=int, help='Number of leaf nodes for move search')
     parser.add_argument('--min_depth', type=int, default=3, help='Minimum computation depth')
     parser.add_argument('--height', type=int, default=1000, help='Screen height')
     parser.add_argument('--width', type=int, default=1000, help='Screen width')

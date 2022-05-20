@@ -265,8 +265,9 @@ class MCTS:
                 # Expand if game not ended
                 policy_list, value_list = self.run_engine([next_board])
                 node.expand(policy_list[0])
-                value = math.atanh(value_list[0])
+                value = value_list[0]
             else:
+                value = math.tanh(value)
                 node.half_move = 1 # Used to compute the value function
                 
             self.backpropagate(search_path, value)
@@ -368,6 +369,7 @@ class MCTS:
                 if value is None:
                     board_slice_list.append(next_board)
                 else:
+                    value = math.tanh(value)
                     node.half_move = 1 # Used to compute the value function in old version
                  
                     
@@ -403,7 +405,7 @@ class MCTS:
         turn_sign = 1 if search_path[-1].board.turn else -1
         
         for node_idx, node in reversed(list(enumerate(search_path))):
-            node.value_sum += math.atanh(value) * turn_sign
+            node.value_sum += value * turn_sign
             
             if node_idx != 0:
                 prior_board = copy.deepcopy(node.board)
@@ -420,7 +422,8 @@ class MCTS:
                     search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
             
             node.visit_count += 1
-            value *= -value_multiplier
+            value = math.tanh(math.atanh(value) * -value_multiplier)
+            
             
     def backpropagate_new(self, search_path: list[Node], value: float, value_multiplier: float=1.0):
         """
