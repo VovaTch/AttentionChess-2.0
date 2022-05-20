@@ -12,8 +12,7 @@ import model.model as module_arch
 from gui.gui_engine import GameState
 from utils import prepare_device, board_to_embedding_coord
 from parse_config import ConfigParser
-# from model.score_functions import ScoreWinFast
-# from data_loaders.mcts import MCTS
+from data_loader.mcts import MCTS
 
 DIMENSION = 8
 IMAGES = {}
@@ -289,7 +288,7 @@ def main(args, config):
         engine.load_state_dict(checkpoint['state_dict'])
     engine = engine.to(device).eval()   
     logger.info('Engine loaded')
-    # mcts = MCTS(engine, engine, args.leaves)
+    mcts = MCTS(engine, engine, args.leaves)
 
     # Prepare the screen of the gui
     screen = p.display.set_mode((args.width, args.height))
@@ -346,9 +345,11 @@ def main(args, config):
                     print('[INFO] Bot move')
 
                     # Run the network and get a move sample
-                    output_dict = engine([gs.board])
-                    policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
-                    best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
+                    # output_dict = engine([gs.board])
+                    # policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
+                    # best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
+                    output_root = mcts.run(gs.board)
+                    best_move = output_root.select_action(temperature=1, print_action_count=True)
                     gs.make_move_san(best_move)
 
                     animate_move(screen, gs, args, gs.board.peek(), clock, flip_board)

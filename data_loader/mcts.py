@@ -6,7 +6,7 @@ import numpy as np
 import math
 
 from model.model import AttentionChess2
-from utils import move_to_word
+from utils import move_to_word, word_to_move
 
 
 
@@ -35,7 +35,7 @@ class Node:
         """
         return len(self.children) > 0
     
-    def visit_count(self) -> dict[str: int]:
+    def visit_count_children(self) -> dict[str: int]:
         """
         Create a dictionary of visit counts per child move. The format is 'san_move': visit count.
         """
@@ -46,7 +46,7 @@ class Node:
         """
         Select action according to the visit count distribution and the temperature.
         """
-        visit_counts = torch.tensor(self.visit_count().values()).float()
+        visit_counts = torch.tensor(list(self.visit_count_children().values())).float()
         actions = [action for action in self.children.keys()]
         if temperature == 0:
             action = actions[torch.argmax(visit_counts)]
@@ -119,8 +119,8 @@ class Node:
             else:
                 new_board.push(move)
                 
-            self.children[self.board.san(move)] = Node(prior_prob=prob, board=new_board, device=self.device, use_dir=self.use_dir)
-            self.value_candidates[self.board.san(move)] = None
+            self.children[move] = Node(prior_prob=prob, board=new_board, device=self.device, use_dir=self.use_dir)
+            self.value_candidates[move] = None
             
     def find_greedy_value(self, value_multiplier=1.0):
         
@@ -144,14 +144,26 @@ class Node:
             greedy_value = best_child.find_greedy_value() * value_multiplier
             return greedy_value
             
-            
     def __repr__(self):
         """
-        Debug: display pretty info
+        Display important information quickly
         """
+        prior = "{0:.3f}".format(self.prior_prob)
+        copy_board = copy.deepcopy(self.board)
+        try:
+            copy_board.pop()
+            parent_move = copy_board.san(self.board.peek())
+        except:
+            parent_move = 'Start'
+        return f'{parent_move} p: {float(prior)}, c: {int(self.visit_count)}, v: {float(self.value_avg()):.3f}'
+            
+    # def __repr__(self):
+    #     """
+    #     Debug: display pretty info
+    #     """
         
-        prior = "{0:.2f}".format(self.prior_prob)
-        return "{} Prior: {} Count: {} Value: {}".format(self.board.move_stack, float(prior), int(self.visit_count), np.tanh(float(self.value_avg())))
+    #     prior = "{0:.3f}".format(self.prior_prob)
+    #     return "{} Prior: {} Count: {} Value: {}".format(self.board.move_stack, float(prior), int(self.visit_count), np.tanh(float(self.value_avg())))
         
         
       
@@ -231,7 +243,7 @@ class MCTS:
         
         # Expand the root node
         policy_list, _ = self.run_engine([board])
-        root.expand(policy_list)
+        root.expand(policy_list[0])
         
         for _ in range(self.num_sims):
             node = root
@@ -253,16 +265,16 @@ class MCTS:
                 # Expand if game not ended
                 policy_list, value_list = self.run_engine([next_board])
                 node.expand(policy_list[0])
-                value = torch.atanh(value_list[0])
+                value = math.atanh(value_list[0])
             else:
                 node.half_move = 1 # Used to compute the value function
                 
-            self.backpropagate(search_path, value_list[0])
+            self.backpropagate(search_path, value)
                 
             if verbose:
                 for node in search_path:
                     print(node)
-                
+        print(root)
         return root
     
     
@@ -388,8 +400,10 @@ class MCTS:
 
     def backpropagate(self, search_path: list[Node], value: float, value_multiplier: float=0.95):
         
+        turn_sign = 1 if search_path[-1].board.turn else -1
+        
         for node_idx, node in reversed(list(enumerate(search_path))):
-            node.value_sum += math.atanh(value)
+            node.value_sum += math.atanh(value) * turn_sign
             
             if node_idx != 0:
                 prior_board = copy.deepcopy(node.board)
@@ -406,7 +420,7 @@ class MCTS:
                     search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
             
             node.visit_count += 1
-            value *= value_multiplier
+            value *= -value_multiplier
             
     def backpropagate_new(self, search_path: list[Node], value: float, value_multiplier: float=1.0):
         """
