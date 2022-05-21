@@ -345,11 +345,13 @@ def main(args, config):
                     print('[INFO] Bot move')
 
                     # Run the network and get a move sample
-                    # output_dict = engine([gs.board])
-                    # policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
-                    # best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
-                    output_root = mcts.run(gs.board)
-                    best_move = output_root.select_action(temperature=1, print_action_count=True)
+                    if args.no_mcts:
+                        output_dict = engine([gs.board])
+                        policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
+                        best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
+                    else:
+                        output_root = mcts.run(gs.board)
+                        best_move = output_root.select_action(temperature=args.temperature, print_action_count=True)
                     gs.make_move_san(best_move)
 
                     animate_move(screen, gs, args, gs.board.peek(), clock, flip_board)
@@ -442,12 +444,16 @@ def main(args, config):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Simple chess board for playing the bot.')
     parser.add_argument('-c', '--config', default='config/config.yaml', type=str,
-                        help='config file path (default: None)')
+                        help='config file path (default: config/config.yaml)')
     parser.add_argument('-r', '--resume', default='model_best.pth', type=str,
-                        help='path to latest checkpoint (default: None)')
-    parser.add_argument('-d', '--device', default='cuda', type=str,
-                        help='indices of GPUs to enable (default: all)')
-    parser.add_argument('-l', '--leaves', default=10, type=int, help='Number of leaf nodes for move search')
+                        help='path to latest checkpoint (default: model_best.pth)')
+    parser.add_argument('-d', '--device', default='cuda:0', type=str,
+                        help='indices of GPUs to enable (default: cuda:0)')
+    parser.add_argument('-l', '--leaves', default=100, type=int, help='Number of leaf nodes for move search')
+    parser.add_argument('-t', '--temperature', default=0.0, type=float,
+                        help='Temperature for the move MCTS move selection. \n'
+                        'Default=0.0 -> always the best move.\n''1.0 -> sample from mcts visit count normalized.\n'
+                        'infinity -> uniformaly sampled random move.')
     parser.add_argument('--min_depth', type=int, default=3, help='Minimum computation depth')
     parser.add_argument('--height', type=int, default=1000, help='Screen height')
     parser.add_argument('--width', type=int, default=1000, help='Screen width')
@@ -456,6 +462,9 @@ if __name__ == '__main__':
                         'for deviating from the arg-max policy')
     parser.add_argument('--use_vanilla_pieces', action='store_true', 
                         help='Flag for using default pieces instead of self painted ones')
+    parser.add_argument('--no_mcts', action='store_true', 
+                        help='Disable Monte-Carlo Tree Search for move selection. Much faster,' 
+                        'but plays poorly compared to MCTS with ~50 and above number of leaves.')
 
     # custom cli options to modify configuration from default values given in json file.
     CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')

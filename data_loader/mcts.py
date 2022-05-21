@@ -193,6 +193,10 @@ def ucb_scores(parent: Node, children: dict[str, Node], dir_noise: bool=False):
     
         else:
             value_scores[move] = 0
+            
+        # Mate magnet edition
+        if move[-1] == '#':
+            value_scores[move] = np.inf
     
     collector_scores = {move: value_scores[move] + c_puct * prior_scores[move] for move, _ in children.items()}
 
