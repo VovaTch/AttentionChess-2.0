@@ -1,6 +1,6 @@
 # AttentionChess-2.0
 
-<img src="https://github.com/VovaTch/AttentionChess-2.0/blob/main/Attchess.png" alt="drawing" width="500"/>
+<img src="https://github.com/VovaTch/AttentionChess-2.0/blob/master/Attchess.png" alt="drawing" width="500"/>
 
 
 A personal project for creating a transformer encoder-decoder-based chess engine. This is the sequel version, bigger and better! This project is based on PyTorch and Python Chess. Here I use a sparse encoder-only architecture with ~32 million parameters to output a policy (as a 4864-dimension classification vector) and value, ranging from 1 to -1. In the post-processed outputs, 1 is white player winning and -1 is black player winning. Currently it's 
