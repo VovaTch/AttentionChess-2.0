@@ -8,8 +8,7 @@ import numpy as np
 
 import torch
 import pandas as pd
-    
-    
+import chess
     
 
 
@@ -99,3 +98,13 @@ def extract_device(model: torch.nn.Module):
         device = parameter.device
         break
     return device
+
+def is_game_end(board: chess.Board):
+    """Checks if the game ends."""
+    if board.is_checkmate():
+        result_const = -1 if board.turn else 1
+        return True, result_const
+    elif board.is_stalemate() or board.is_repetition() or \
+            board.is_seventyfive_moves() or board.is_insufficient_material():
+        return True, 0
+    return False, 0

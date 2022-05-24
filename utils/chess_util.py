@@ -24,12 +24,18 @@ def board_to_representation(board: chess.Board) -> torch.Tensor:
         row = int(pos / 8)
         
         if piece:
-
-            pos_total[row * 8 + col, piece - 1 + color_add] = 1
+            
+            # Mark horizontals, verticals, and diagonals if bishop, rook, or queen
+            if piece in [4, 5, 10, 11]:
+                pos_total = _mark_hor_ver(pos_total, pos, piece - 1 + color_add)
+            if piece in [3, 5, 9 ,11]:
+                pos_total = _mark_diag(pos_total, pos, piece - 1 + color_add)
             
             # Show influence on board
             for attacked_square in list(board.attacks(pos)):
-                pos_total[attacked_square, piece - 1 + color_add] += 0.25
+                pos_total[attacked_square, piece - 1 + color_add] = pos_total[attacked_square, piece - 1 + color_add] + 0.25\
+                    if pos_total[attacked_square, piece - 1 + color_add] >= 0.25\
+                        else 0.25
                 if color:
                     pos_total[attacked_square, 15] -= 1
                 else:
@@ -39,6 +45,9 @@ def board_to_representation(board: chess.Board) -> torch.Tensor:
             if board.ep_square:
                 ep_square = np.floor(board.ep_square)
                 pos_total[int(ep_square), piece - 1 + color_add] = 0.33
+            
+            # Piece placement
+            pos_total[row * 8 + col, piece - 1 + color_add] = 1
             
             # Castling
             if piece == 6 and not color and board.has_castling_rights(chess.WHITE):
@@ -163,3 +172,77 @@ def board_to_embedding_coord(board: chess.Board):
     x += (not board.turn) * 18
     x = x.int()
     return x
+
+def _mark_hor_ver(pos_total, pos, piece_idx):
+    """
+    Marks horizontal and vertical lines, used for rook and queen attack lines.
+    """
+    
+    # Vertical up
+    mark_idx = pos
+    while mark_idx < 64:
+        pos_total[mark_idx, piece_idx] = 0.1 if pos_total[mark_idx, piece_idx] == 0 else pos_total[mark_idx, piece_idx]
+        mark_idx += 8
+        
+    # Vertical down
+    mark_idx = pos
+    while mark_idx >= 0:
+        pos_total[mark_idx, piece_idx] = 0.1 if pos_total[mark_idx, piece_idx] == 0 else pos_total[mark_idx, piece_idx]
+        mark_idx -= 8
+        
+    # Horizontal right
+    mark_idx = pos
+    while mark_idx % 8 != 0:
+        pos_total[mark_idx, piece_idx] = 0.1 if pos_total[mark_idx, piece_idx] == 0 else pos_total[mark_idx, piece_idx]
+        mark_idx += 1
+        
+    # Horizontal left
+    mark_idx = pos
+    while mark_idx % 8 != 0:
+        mark_idx -= 1
+        pos_total[mark_idx, piece_idx] = 0.1 if pos_total[mark_idx, piece_idx] == 0 else pos_total[mark_idx, piece_idx]
+        
+    return pos_total
+
+def _mark_diag(pos_total, pos, piece_idx):
+    """
+    Marks diagonals, used for bishop and queen attack lines.
+    """
+
+    
+    # Diagonal down right
+    col = int(pos % 8)
+    row = int(pos / 8)
+    while row >=0 and col < 8:
+        pos_total[col + row * 8, piece_idx] = 0.1 if pos_total[col + row * 8, piece_idx] == 0 else pos_total[col + row * 8, piece_idx]
+        row -= 1
+        col += 1
+        
+    # Diagonal up right
+            
+    col = int(pos % 8)
+    row = int(pos / 8)
+    while row < 8 and col < 8:
+        pos_total[col + row * 8, piece_idx] = 0.1 if pos_total[col + row * 8, piece_idx] == 0 else pos_total[col + row * 8, piece_idx]
+        row += 1
+        col += 1
+        
+    # Diagonal down left
+            
+    col = int(pos % 8)
+    row = int(pos / 8)
+    while row >= 0 and col >= 0:
+        pos_total[col + row * 8, piece_idx] = 0.1 if pos_total[col + row * 8, piece_idx] == 0 else pos_total[col + row * 8, piece_idx]
+        row -= 1
+        col -= 1
+              
+    # Diagonal down left
+            
+    col = int(pos % 8)
+    row = int(pos / 8)
+    while row < 8 and col >= 0:
+        pos_total[col + row * 8, piece_idx] = 0.1 if pos_total[col + row * 8, piece_idx] == 0 else pos_total[col + row * 8, piece_idx]
+        row += 1
+        col -= 1
+        
+    return pos_total

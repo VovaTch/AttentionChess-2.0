@@ -7,6 +7,7 @@ import math
 
 from model.model import AttentionChess2
 from utils import move_to_word, word_to_move
+from utils.chess_util import board_to_representation
 
 
 
@@ -288,7 +289,7 @@ class MCTS:
         Consider all nodes that have X or more visits for future training of self play.
         """
         
-        board_collection: list[chess.Board] = [node.board]
+        board_collection: torch.Tensor = board_to_representation(node.board).unsqueeze(0)
         policy_collection: torch.Tensor = self._create_policy_vector(node)
         value_collection: torch.Tensor = torch.tensor([node.value_avg()]).to(self.device)
         
@@ -300,14 +301,14 @@ class MCTS:
                 board_add, policy_add, value_add = self.collect_nodes_for_training(child, min_counts=min_counts)
                 
                 # Recursivelly add the nodes with the correct count number
-                board_collection.extend(board_add)
+                board_collection = torch.cat((board_collection, board_add), dim=0)
                 policy_collection = torch.cat((policy_collection, policy_add), dim=0)
                 value_collection = torch.cat((value_collection, value_add), dim=0)
                 
             # Endgame position should be considered as an endgame position by the network.
             game_end, value_end = _is_game_end(child.board)
             if game_end:
-                board_collection.append(child.board)
+                board_collection = torch.cat((board_collection, board_to_representation(child.board).unsqueeze(0).to(self.device)), dim=0)
                 policy_collection = torch.cat((policy_collection, torch.zeros(1, 4864).to(self.device)), dim=0)
                 value_collection = torch.cat((value_collection, torch.tensor(value_end).to(self.device)), dim=0)
         
@@ -361,7 +362,6 @@ class MCTS:
                     next_board = search_path_list[idx][-1].board
                 
                 value = self.get_endgame_value(next_board)
-                value_list[idx] = value
                 
                 if value == 5:
                     white_win_count += 1
@@ -375,6 +375,8 @@ class MCTS:
                 else:
                     value = math.tanh(value)
                     node.half_move = 1 # Used to compute the value function in old version
+                    
+                value_list[idx] = value
                  
                     
             # Forward all boards through the net
@@ -387,7 +389,7 @@ class MCTS:
             for idx, node in enumerate(node_edge_list):
                 if value_list[idx] is None:
                     node.expand(policy_list[node_selection_idx])
-                    value_list[idx] = torch.atanh(value_list_out[node_selection_idx])
+                    value_list[idx] = value_list_out[node_selection_idx]
                     node_selection_idx += 1
                     
             for idx, search_path in enumerate(search_path_list):
@@ -447,12 +449,12 @@ class MCTS:
         Create a policy vector from a node. Converts the visit count dictionary into a probability vector sized 4864.
         """
         policy_vector = torch.zeros((1, 4864)).to(self.device)
-        visit_count_dict = node.visit_count()
+        visit_count_dict = node.visit_count_children()
         
         for move_key, count_value in visit_count_dict.items():
             move = node.board.parse_san(move_key)
             word = move_to_word(move)
-            policy_vector[word] = count_value
+            policy_vector[0, word] = count_value
             
         policy_vector = F.normalize(policy_vector, p=1)
         return policy_vector
