@@ -30,6 +30,7 @@ class Trainer(BaseTrainer):
         self.do_validation = self.valid_data_loader is not None
         self.lr_scheduler = lr_scheduler
         self.log_step = int(np.sqrt(data_loader.batch_size))
+        self.self_play_flag = True if 'mcts' in config else False
 
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
@@ -81,6 +82,11 @@ class Trainer(BaseTrainer):
             
             if self.config['lr_scheduler']['type'] == 'OneCycleLR':
                 oclr_scheduler.step()
+                
+            # Set models in case of full self play; needed because there are 2 MCTS objects
+            if self.self_play_flag:
+                self.data_loader.dataset.mcts.good_model = copy.deepcopy(self.model)
+                self.data_loader.dataset.mcts.evil_model = copy.deepcopy(self.model)
             
         log = self.train_metrics.result()
 

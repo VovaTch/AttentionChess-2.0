@@ -98,12 +98,12 @@ class FullSelfPlayDataset(Dataset):
                                                                                                 min_counts=self.min_counts)
                 
                 # Collect data for variables
-                self.buffer['board'] = torch.cat((self.buffer['board'], board_collection), dim=0)
-                self.buffer['policy'] = torch.cat((self.buffer['policy'], policy_collection), dim=0)
+                self.buffer['board'] = torch.cat((self.buffer['board'], board_collection.to('cpu')), dim=0)
+                self.buffer['policy'] = torch.cat((self.buffer['policy'], policy_collection.to('cpu')), dim=0)
                 if self.buffer['value'].nelement == 0:
                     self.buffer['value'] = value_collection
                 else:
-                    self.buffer['value'] = torch.cat((self.buffer['value'], value_collection), dim=0)
+                    self.buffer['value'] = torch.cat((self.buffer['value'], value_collection.to('cpu')), dim=0)
                     
                 # Prune if the buffer size exceeds the limit
                 if self.buffer['board'].size()[0] > self.buffer_size:

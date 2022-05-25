@@ -289,7 +289,7 @@ class MCTS:
         Consider all nodes that have X or more visits for future training of self play.
         """
         
-        board_collection: torch.Tensor = board_to_representation(node.board).unsqueeze(0)
+        board_collection: torch.Tensor = board_to_representation(node.board).unsqueeze(0).to(self.device)
         policy_collection: torch.Tensor = self._create_policy_vector(node)
         value_collection: torch.Tensor = torch.tensor([node.value_avg()]).to(self.device)
         
@@ -310,7 +310,7 @@ class MCTS:
             if game_end:
                 board_collection = torch.cat((board_collection, board_to_representation(child.board).unsqueeze(0).to(self.device)), dim=0)
                 policy_collection = torch.cat((policy_collection, torch.zeros(1, 4864).to(self.device)), dim=0)
-                value_collection = torch.cat((value_collection, torch.tensor(value_end).to(self.device)), dim=0)
+                value_collection = torch.cat((value_collection, torch.tensor([value_end]).to(self.device)), dim=0)
         
         return board_collection, policy_collection, value_collection    
     

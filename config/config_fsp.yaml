@@ -1,0 +1,81 @@
+name: "AttentionChess2"
+n_gpu: 1
+
+arch: 
+    type: "AttentionChess2"
+    args:
+        hidden_dim: 256
+        num_encoders: 6
+        num_experts: 4
+        expert_dim: 2048
+        dropout: 0.1
+        aux_outputs: true
+        device: "cuda:0"
+
+data_loader: 
+    type: "FullSelfPlayLoader"
+    args:
+        batch_size: 16
+        shuffle: true
+        validation_split: 0.0
+        num_workers: 0
+        num_of_sims: 100
+        min_counts: 20
+        move_limit: 300
+        buffer_size: 100000
+        ignore_loss_sim: 1.0
+
+mcts:
+    type: "MCTS"
+    args:
+        use_dir: true
+        device: "cuda:0"
+
+    
+optimizer: 
+    type: "AdamW"
+    args:
+        lr: 0.001
+        weight_decay: 0.000001
+        amsgrad: true
+    
+loss: 
+    type: "Criterion"
+    args:
+        losses:
+            -  "loss_policy"
+            -  "loss_value"
+
+loss_weights:
+    policy: 1
+    value: 2
+
+metrics: 
+    -  "loss_policy"
+    -  "loss_value"
+
+# lr_scheduler: 
+#     type: "StepLR"
+#     args: 
+#         step_size: 50
+#         gamma: 0.1
+
+lr_scheduler:
+    type: "OneCycleLR"
+    args:
+        max_lr: 0.001
+        epochs: 1
+        steps_per_epoch: 50000
+
+trainer: 
+
+    epochs: 10000
+
+    save_dir: "saved/"
+    save_period: 50
+    verbosity: 2
+    
+    monitor: "min val_loss"
+    early_stop: 10
+
+    tensorboard: true
