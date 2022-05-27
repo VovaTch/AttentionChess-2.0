@@ -1,3 +1,5 @@
+from typing import Dict
+
 import torch
 
 
@@ -8,7 +10,7 @@ class Criterion(torch.nn.Module):
         self.losses = losses
         
 
-    def loss_value(self, prediction_dict: dict[str, torch.Tensor], target_dict: dict[str, torch.Tensor]):
+    def loss_value(self, prediction_dict: Dict[str, torch.Tensor], target_dict: Dict[str, torch.Tensor]):
         """Score for the board value; doing this MSE style"""
         mse_loss_handle = torch.nn.MSELoss()
         loss = {}
@@ -25,7 +27,7 @@ class Criterion(torch.nn.Module):
 
         return loss
 
-    def loss_policy(self, prediction_dict: dict[str, torch.Tensor], target_dict: dict[str, torch.Tensor]):
+    def loss_policy(self, prediction_dict: Dict[str, torch.Tensor], target_dict: Dict[str, torch.Tensor]):
         """Cross entropy loss; if there is a win vector, only counts probability vectors that the win flag is true."""
 
         loss_ce = torch.nn.CrossEntropyLoss()
@@ -46,7 +48,7 @@ class Criterion(torch.nn.Module):
                     
         return loss
 
-    def get_loss(self, loss, prediction_dict: dict[str, torch.Tensor], target_dict: dict[str, torch.Tensor]):
+    def get_loss(self, loss, prediction_dict: Dict[str, torch.Tensor], target_dict: Dict[str, torch.Tensor]):
         loss_map = {
             'loss_policy': self.loss_policy,
             'loss_value': self.loss_value
@@ -54,7 +56,7 @@ class Criterion(torch.nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](prediction_dict, target_dict)
 
-    def forward(self, prediction_dict: dict[str, torch.Tensor], target_dict: dict[str, torch.Tensor]):
+    def forward(self, prediction_dict: Dict[str, torch.Tensor], target_dict: Dict[str, torch.Tensor]):
 
         losses = {}
         for loss in self.losses:
