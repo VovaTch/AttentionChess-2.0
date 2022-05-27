@@ -38,7 +38,7 @@ class Node:
         """
         return len(self.children) > 0
     
-    def visit_count_children(self) -> Dict[str: int]:
+    def visit_count_children(self) -> Dict[str, int]:
         """
         Create a dictionary of visit counts per child move. The format is 'san_move': visit count.
         """
