@@ -6,3 +6,6 @@ tensorboard>=1.14
 colorama
 chess
 labml-nn
+pygame
+jmespath
+pyyaml
