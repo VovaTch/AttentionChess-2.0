@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import torch
 import torch.nn.functional as F
 import chess
@@ -23,9 +25,9 @@ class Node:
         self.turn: bool = board.turn
         self.half_move = None  # Used to compute the cost function
         
-        self.children: dict[str, Node] = {}
+        self.children: Dict[str, Node] = {}
         self.visit_count: int = 0
-        self.value_candidates: dict[str, float] = {}
+        self.value_candidates: Dict[str, float] = {}
         self.value_sum: float = 0.0
         self.board: chess.Board = board
         self.use_dir: bool = use_dir
@@ -36,7 +38,7 @@ class Node:
         """
         return len(self.children) > 0
     
-    def visit_count_children(self) -> dict[str: int]:
+    def visit_count_children(self) -> Dict[str: int]:
         """
         Create a dictionary of visit counts per child move. The format is 'san_move': visit count.
         """
@@ -107,7 +109,7 @@ class Node:
         else:
             return non_none_candidate[min(non_none_candidate, key=non_none_candidate.get)]
         
-    def expand(self, policy_vec: dict[str, float]):
+    def expand(self, policy_vec: Dict[str, float]):
         """
         Expand the node to include all possible moves.
         """
@@ -168,7 +170,7 @@ class Node:
         
         
       
-def ucb_scores(parent: Node, children: dict[str, Node], dir_noise: bool=False):
+def ucb_scores(parent: Node, children: Dict[str, Node], dir_noise: bool=False):
     """
     The score for an action that would transition between the parent and child.
     """
@@ -226,7 +228,7 @@ class MCTS:
         self.board_value_vec = torch.zeros(0).to(self.device)
         
     @torch.no_grad()
-    def run_engine(self, boards: list[chess.Board]):
+    def run_engine(self, boards: List[chess.Board]):
         out_dict = self.model_good(boards) if self.model_good_flag else self.model_evil(boards)
         policy_list, value_list = self.model_good.post_process(boards, out_dict)
         return policy_list, value_list
@@ -315,7 +317,7 @@ class MCTS:
         return board_collection, policy_collection, value_collection    
     
     
-    def run_multi(self, boards: list[chess.Board], verbose=False, print_enchors=True):
+    def run_multi(self, boards: List[chess.Board], verbose=False, print_enchors=True):
         
         self.model_good_flag = True
         roots = [Node(board, 0.0, self.device, use_dir=self.use_dir) for board in boards]
@@ -408,11 +410,11 @@ class MCTS:
                 
             
 
-    def backpropagate(self, search_path: list[Node], value: float, value_multiplier: float=0.95):
+    def backpropagate(self, search_path: List[Node], value: float, value_multiplier: float=0.95):
         
         turn_sign = 1 if search_path[-1].board.turn else -1
         
-        for node_idx, node in reversed(list(enumerate(search_path))):
+        for node_idx, node in reversed(List(enumerate(search_path))):
             node.value_sum += value * turn_sign
             
             if node_idx != 0:
@@ -433,7 +435,7 @@ class MCTS:
             value = math.tanh(math.atanh(value) * -value_multiplier)
             
             
-    def backpropagate_new(self, search_path: list[Node], value: float, value_multiplier: float=1.0):
+    def backpropagate_new(self, search_path: List[Node], value: float, value_multiplier: float=1.0):
         """
         Backpropagation according to the paper that claims that the most greedy leaf should determine the value
         """
