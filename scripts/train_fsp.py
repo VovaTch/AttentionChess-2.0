@@ -35,6 +35,11 @@ def main(config):
     model = model.to(device)
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
+        
+    # Resume from checkpoint
+    if config.resume is not None:
+        checkpoint = torch.load(config.resume, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint['state_dict'])
 
     # get function handles of loss and metrics
     criterion = config.init_obj('loss', module_loss)

@@ -22,7 +22,7 @@ data_loader:
         num_of_sims: 100
         min_counts: 20
         move_limit: 300
-        buffer_size: 100000
+        buffer_size: 20000
         ignore_loss_sim: 1.0
 
 mcts:
@@ -72,7 +72,7 @@ trainer:
     epochs: 10000
 
     save_dir: "saved/"
-    save_period: 50
+    save_period: 5
     verbosity: 2
     
     monitor: "min val_loss"

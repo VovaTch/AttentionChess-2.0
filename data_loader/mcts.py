@@ -310,7 +310,7 @@ class MCTS:
             if game_end:
                 board_collection = torch.cat((board_collection, board_to_representation(child.board).unsqueeze(0).to(self.device)), dim=0)
                 policy_collection = torch.cat((policy_collection, torch.zeros(1, 4864).to(self.device)), dim=0)
-                value_collection = torch.cat((value_collection, torch.tensor([value_end]).to(self.device)), dim=0)
+                value_collection = torch.cat((value_collection, torch.tensor([-abs(value_end)]).to(self.device)), dim=0)
         
         return board_collection, policy_collection, value_collection    
     
@@ -393,6 +393,8 @@ class MCTS:
                     node_selection_idx += 1
                     
             for idx, search_path in enumerate(search_path_list):
+                value_list[idx] = 0.99999999 if value_list[idx] >= 1 else value_list[idx]
+                value_list[idx] = -0.99999999 if value_list[idx] <= -1 else value_list[idx]
                 self.backpropagate(search_path, value_list[idx])
                 
                 if verbose:

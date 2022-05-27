@@ -43,7 +43,10 @@ class FullSelfPlayDataset(Dataset):
             'value': torch.zeros((0))
         }
         self.follow_idx = 0
-        self.load_game()
+        while self.buffer['board'].size()[0] < self.buffer_size:
+            self.load_game()
+            print_size = self.buffer['board'].size()[0]
+            print(f'Current number of positions: {print_size}')
         
     def __getitem__(self, sample_idx):
         
@@ -112,7 +115,7 @@ class FullSelfPlayDataset(Dataset):
                     self.buffer['value'] = self.buffer['value'][-self.buffer_size:]
                 
             # Push and print the moves
-            samples = [sample_node.select_action(temperature=0.5) for sample_node in sample_nodes]
+            samples = [sample_node.select_action(temperature=0.25) for sample_node in sample_nodes]
             sample_string = ', '.join(samples)
             print(f'[FullSelfPlay]: Pushed moves: ' + Fore.YELLOW + sample_string + Fore.RESET + f'\tMove: {(move_idx + 2) // 2}')
             for idx, board in enumerate(boards_active):
@@ -150,4 +153,4 @@ class FullSelfPlayDataset(Dataset):
             
 
     def __len__(self):
-        return self.buffer['board'].size()[0]
+        return self.buffer_size
