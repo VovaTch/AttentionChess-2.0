@@ -10,6 +10,7 @@ A personal project for creating a transformer encoder-decoder-based chess engine
 ## Current playing instructions:
 
 * Clone the repository `git clone https://github.com/VovaTch/AttentionChess-2.0.git`.
+* Install the requirements `pip install -r requirements.txt`
 * Download weights from the above link and put them in the repository main folder.
 * Run `python play_game_gui.py` for a simple chess board gui.
 * Move pieces by selecting them and pressing the destination square. A highlight for the piece and the legal moves will appear.
