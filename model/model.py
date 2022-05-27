@@ -1,4 +1,4 @@
-from __future__ import annotations
+from typing import Dict, List
 
 import torch
 import torch.nn as nn
@@ -51,7 +51,7 @@ class AttentionChess2(BaseModel):
         self.policy_cls_head = EndHead(hidden_dim=hidden_dim, num_tokens=64, dim_out=4864)
         self.value_head = EndHead(hidden_dim=hidden_dim, num_tokens=64, dim_out=1)
         
-    def forward(self, boards: list[chess.Board]) -> dict[str, torch.Tensor]:
+    def forward(self, boards: List[chess.Board]) -> Dict[str, torch.Tensor]:
         """
         Gets a list of boards in the form of chess.Board, and outputs a dictionary with entries "policy" and "value", with the values being tensors.
         The policy is sized BS x 4864
@@ -61,7 +61,7 @@ class AttentionChess2(BaseModel):
         output_dict = self.forward_raw(boards_tensor)
         return output_dict
         
-    def forward_raw(self, boards: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward_raw(self, boards: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         The raw forward method that gets a tensor sized BS x 64 x 8 x 8. It outputs a dictionary with policy and value. 
         If the aux outputs flag is enabled, it outputs them as well.
@@ -96,8 +96,8 @@ class AttentionChess2(BaseModel):
         return output_dict
     
     @staticmethod
-    def post_process(boards: list[chess.Board], 
-                     output_dict: dict[str, torch.Tensor], 
+    def post_process(boards: List[chess.Board], 
+                     output_dict: Dict[str, torch.Tensor], 
                      print_output: bool = False):
         """
         A method for processing the raw outputs to output and potentially show them in a presentable fashion. Takes into account legal moves.
