@@ -414,7 +414,7 @@ class MCTS:
         
         turn_sign = 1 if search_path[-1].board.turn else -1
         
-        for node_idx, node in reversed(List(enumerate(search_path))):
+        for node_idx, node in reversed(list(enumerate(search_path))):
             node.value_sum += value * turn_sign
             
             if node_idx != 0:
