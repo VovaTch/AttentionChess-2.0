@@ -1,4 +1,5 @@
 from typing import Dict, List
+import time
 
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ from base import BaseModel
 from model.switch_transformer import SwitchTransformerLayer, SwitchTransformer, SwitchFeedForward
 from labml_nn.transformers.feed_forward import FeedForward
 from labml_nn.transformers.mha import MultiHeadAttention
-from utils import board_to_representation, move_to_word
+from utils import move_to_word, board_to_representation
 
 
 class AttentionChess2(BaseModel):
@@ -66,7 +67,6 @@ class AttentionChess2(BaseModel):
         The raw forward method that gets a tensor sized BS x 64 x 8 x 8. It outputs a dictionary with policy and value. 
         If the aux outputs flag is enabled, it outputs them as well.
         """
-        
         # Prepare the input
         boards_flattened = boards.flatten(2, 3)
         transformer_input = boards_flattened.permute((2, 0, 1)) # To get 64 x BS x Hidden_dim
@@ -112,6 +112,10 @@ class AttentionChess2(BaseModel):
             # Filter out legal moves and extract the policy based on that
             legal_moves = {move_to_word(legal_move): board.san(legal_move) for legal_move in board.legal_moves}
             policy_filtered = output_dict['policy'][num_idx, np.ix_(list(legal_moves.keys()))]
+            
+            # policy_filtered_all = torch.index_select(output_dict['policy'], 1, torch.tensor(list(legal_moves.keys())))
+            # policy_filtered = policy_filtered_all[num_idx, :].unsqueeze(0)
+            
             policy_filtered = F.softmax(policy_filtered, dim=1)
             ind_policy_dict = {legal_move_san: policy_prob.item() for legal_move_san, policy_prob in zip(legal_moves.values(), policy_filtered[0])}
             policy_list.append(ind_policy_dict)

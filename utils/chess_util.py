@@ -1,7 +1,10 @@
+import time
+import pickle
+
 import chess
 import torch
 import numpy as np
-
+         
 
 def board_to_representation(board: chess.Board) -> torch.Tensor: 
     """
@@ -10,13 +13,13 @@ def board_to_representation(board: chess.Board) -> torch.Tensor:
     """
     
     # Python chess uses flattened representation of the board
-    pos_total = torch.zeros((64, 16)) # 12 pieces (white, black) (p, N, B, R, Q, K), 2 coordinates (col, row), 1 turn
+    pos_total = np.zeros((64, 16)) # 12 pieces (white, black) (p, N, B, R, Q, K), 2 coordinates (col, row), 1 turn
     
     for pos in range(64):
         
         # Extract the piece
         piece = board.piece_type_at(pos)
-      
+    
         # Place piece on board
         color = int(bool(board.occupied_co[chess.BLACK] & chess.BB_SQUARES[pos]))
         color_add = 6 if color else 0
@@ -42,26 +45,30 @@ def board_to_representation(board: chess.Board) -> torch.Tensor:
                     pos_total[attacked_square, 15] += 1
             
             # En passant    
-            if board.ep_square:
-                ep_square = np.floor(board.ep_square)
-                pos_total[int(ep_square), piece - 1 + color_add] = 0.33
+            if piece == 1:
+                if board.ep_square:
+                    ep_square = np.floor(board.ep_square)
+                    pos_total[int(ep_square), piece - 1 + color_add] = 0.33
             
             # Piece placement
             pos_total[row * 8 + col, piece - 1 + color_add] = 1
             
             # Castling
-            if piece == 6 and not color and board.has_castling_rights(chess.WHITE):
-                pos_total[row * 8 + col, 5] = 2
-            if piece == 6 and color and board.has_castling_rights(chess.BLACK):
-                pos_total[row * 8 + col, 11] = 2
-        
+            if piece == 6:
+                if piece == 6 and not color and board.has_castling_rights(chess.WHITE):
+                    pos_total[row * 8 + col, 5] = 2
+                if piece == 6 and color and board.has_castling_rights(chess.BLACK):
+                    pos_total[row * 8 + col, 11] = 2
+            
         # Encapsulate coordinates        
         pos_total[row * 8 + col, 12], pos_total[row * 8 + col, 13] = col, row
         
     # Encapsulate turn
     pos_total[:, 14] = 0 if board.turn else 1
     representation_board = pos_total.reshape((8, 8, 16))
-    representation_board = representation_board.permute((2, 0, 1))
+    representation_board = np.transpose(representation_board, (2, 0, 1))
+    representation_board = torch.from_numpy(representation_board).float()
+    
     return representation_board
             
             
@@ -172,6 +179,32 @@ def board_to_embedding_coord(board: chess.Board):
     x += (not board.turn) * 18
     x = x.int()
     return x
+
+def _fen_to_bitmap_rep(pos_total: np.ndarray, fen: str):
+    """
+    A function that converts a fen representation into pytorch position board without influence areas.
+    """
+    
+    CONVERSION_DICT = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
+                       'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
+    
+    # Create a visual board representation
+    fen_split = fen.split()
+    fen_board = fen_split[0]
+    for num_empty in range(8):
+        replacer = '-' * (num_empty + 1)
+        fen_board = fen_board.replace(str(num_empty + 1), replacer)
+    fen_board_split = fen_board.split('/')
+    for idx_row, row in enumerate(reversed(fen_board_split)):
+        for idx_col, piece in enumerate(row):
+            if piece != '-':
+                pos_total[idx_col + 8 * idx_row, CONVERSION_DICT[piece]] = 1
+                
+    # Encapsulate turn
+    pos_total[:, 14] = 0 if fen_split[1] == 'w' else 1
+    
+    return pos_total
+    
 
 def _mark_hor_ver(pos_total, pos, piece_idx):
     """

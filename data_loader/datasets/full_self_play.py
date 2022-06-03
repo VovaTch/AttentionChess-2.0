@@ -1,10 +1,10 @@
 import copy
+import time
 
 import chess
 import torch
 from torch.utils.data import Dataset
 from colorama import Fore
-from zmq import device
 
 from utils.util import is_game_end
 from data_loader.mcts import MCTS
@@ -95,6 +95,7 @@ class FullSelfPlayDataset(Dataset):
             
             # Collect all individual data from the nodes
             for sample_node in sample_nodes:
+                
                 
                 # TODO: Activate CUDA
                 board_collection, policy_collection, value_collection = self.mcts.collect_nodes_for_training(sample_node, 

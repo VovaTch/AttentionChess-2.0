@@ -33,14 +33,14 @@ class FullSelfPlayLoader(BaseDataLoader):
     """
     Data loader for self playing games with moves from database.
     """
-    def __init__(self, batch_size, mcts, collate_fn,
+    def __init__(self, batch_size, mcts, collate_fn, simultaneous_mcts=16,
                  shuffle=True, validation_split=0.0, num_workers=0, training=True, 
                  num_of_sims=100, min_counts=10, move_limit=300, buffer_size=1e5, ignore_loss_sim=1.0):
 
         self.dataset: FullSelfPlayDataset = FullSelfPlayDataset(num_of_sims=num_of_sims, 
                                                                 mcts=mcts,
                                                                 min_counts=min_counts, 
-                                                                simultaneous_mcts=batch_size, 
+                                                                simultaneous_mcts=simultaneous_mcts, 
                                                                 move_limit=move_limit, 
                                                                 buffer_size=buffer_size, 
                                                                 ignore_loss_lim=ignore_loss_sim)

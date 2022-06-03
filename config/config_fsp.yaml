@@ -15,14 +15,15 @@ arch:
 data_loader: 
     type: "FullSelfPlayLoader"
     args:
-        batch_size: 16
+        simultaneous_mcts: 16
+        batch_size: 128
         shuffle: true
         validation_split: 0.0
         num_workers: 0
-        num_of_sims: 100
-        min_counts: 20
+        num_of_sims: 500
+        min_counts: 100
         move_limit: 300
-        buffer_size: 20000
+        buffer_size: 50000
         ignore_loss_sim: 1.0
 
 mcts:
