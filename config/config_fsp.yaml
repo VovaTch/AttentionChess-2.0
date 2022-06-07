@@ -15,15 +15,15 @@ arch:
 data_loader: 
     type: "FullSelfPlayLoader"
     args:
-        simultaneous_mcts: 16
+        simultaneous_mcts: 128
         batch_size: 128
         shuffle: true
         validation_split: 0.0
         num_workers: 0
-        num_of_sims: 500
-        min_counts: 100
+        num_of_sims: 100
+        min_counts: 20
         move_limit: 300
-        buffer_size: 50000
+        buffer_size: 300
         ignore_loss_sim: 1.0
 
 mcts:
@@ -70,7 +70,7 @@ lr_scheduler:
 
 trainer: 
 
-    epochs: 10000
+    epochs: 1
 
     save_dir: "saved/"
     save_period: 5

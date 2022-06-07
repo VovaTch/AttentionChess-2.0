@@ -1,4 +1,5 @@
 from typing import Dict, List
+import time
 
 import torch
 import torch.nn.functional as F
@@ -115,7 +116,7 @@ class Node:
         """
         
         for move, prob in policy_vec.items():
-            new_board = copy.deepcopy(self.board)
+            new_board = self.board.copy(stack=False)
             
             if type(move) is str:
                 new_board.push_san(move)
@@ -152,7 +153,7 @@ class Node:
         Display important information quickly
         """
         prior = "{0:.3f}".format(self.prior_prob)
-        copy_board = copy.deepcopy(self.board)
+        copy_board = self.board.copy(stack=True)
         try:
             copy_board.pop()
             parent_move = copy_board.san(self.board.peek())
@@ -182,8 +183,9 @@ def ucb_scores(parent: Node, children: Dict[str, Node], dir_noise: bool=False):
     
     # Insert Dirichlet noise like it was done in the AlphaZero paper.
     if dir_noise:
-        dir_noise_obj = torch.distributions.Dirichlet(torch.tensor([dir_alpha for _ in children.values()]))
-        dir_noise_sample = dir_noise_obj.sample()
+        #dir_noise_obj = torch.distributions.Dirichlet(torch.tensor([dir_alpha for _ in children.values()]))
+        #dir_noise_sample = dir_noise_obj.sample()
+        dir_noise_sample = np.random.dirichlet([dir_alpha for _ in children.values()])
         
         for idx, (key, prior_pro_value) in enumerate(prior_scores.items()):
             prior_scores[key] = (x_dir * prior_pro_value + (1 - x_dir) * dir_noise_sample[idx])\
@@ -192,7 +194,7 @@ def ucb_scores(parent: Node, children: Dict[str, Node], dir_noise: bool=False):
     value_scores = {}
     for move, child in children.items():
         if child.visit_count > 0 and child.value_avg() is not None:
-            value_scores[move] = - torch.tensor(child.value_avg())
+            value_scores[move] = - child.value_avg()
     
         else:
             value_scores[move] = 0
@@ -200,6 +202,7 @@ def ucb_scores(parent: Node, children: Dict[str, Node], dir_noise: bool=False):
         # Mate magnet edition
         if move[-1] == '#':
             value_scores[move] = np.inf
+            
     
     collector_scores = {move: value_scores[move] + c_puct * prior_scores[move] for move, _ in children.items()}
 
@@ -263,7 +266,7 @@ class MCTS:
                 
             parent = search_path[-2]
             board = parent.board
-            next_board = copy.deepcopy(board)
+            next_board = board.copy(stack=False)
             next_board.push_san(move)
             
             value = self.get_endgame_value(next_board)
@@ -292,7 +295,7 @@ class MCTS:
         """
         
         board_collection: torch.Tensor = board_to_representation(node.board).unsqueeze(0).to(self.device)
-        policy_collection: torch.Tensor = self._create_policy_vector(node)
+        policy_collection: torch.Tensor = self._create_policy_vector(node).to(self.device)
         value_collection: torch.Tensor = torch.tensor([node.value_avg()]).to(self.device)
         
         for child in node.children.values():
@@ -356,7 +359,7 @@ class MCTS:
                     parent = search_path_list[idx][-2]
                     board = parent.board 
                     
-                    next_board = copy.deepcopy(board)
+                    next_board = board.copy(stack=False)
                     next_board.push_san(move)
                     
                 else:
@@ -418,7 +421,7 @@ class MCTS:
             node.value_sum += value * turn_sign
             
             if node_idx != 0:
-                prior_board = copy.deepcopy(node.board)
+                prior_board = node.board.copy(stack=True)
                 prior_board.pop()
                 last_move = prior_board.san(node.board.peek())
                 
@@ -452,7 +455,7 @@ class MCTS:
         """
         Create a policy vector from a node. Converts the visit count dictionary into a probability vector sized 4864.
         """
-        policy_vector = torch.zeros((1, 4864)).to(self.device)
+        policy_vector = np.zeros((1, 4864))
         visit_count_dict = node.visit_count_children()
         
         for move_key, count_value in visit_count_dict.items():
@@ -460,6 +463,7 @@ class MCTS:
             word = move_to_word(move)
             policy_vector[0, word] = count_value
             
+        policy_vector = torch.from_numpy(policy_vector).float()
         policy_vector = F.normalize(policy_vector, p=1)
         return policy_vector
             

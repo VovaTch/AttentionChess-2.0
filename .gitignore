@@ -110,3 +110,6 @@ saved/
 .vscode/
 .idea/
 __MACOSX/
+
+# Profiler output
+profile_output.txt
