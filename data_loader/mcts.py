@@ -246,7 +246,9 @@ class MCTS:
         else:
             return None
         
-    def run(self, board: chess.Board, verbose=False):
+    def run(self, board: chess.Board, time_limit: float=np.inf, verbose=False):
+        
+        time_start = time.time() # Start the clock for the time limit, measured in seconds, probably will have to be converted from miliseconds.
         
         self.model_good_flag = True
         root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
@@ -285,6 +287,10 @@ class MCTS:
             if verbose:
                 for node in search_path:
                     print(node)
+            
+            if time.time() - time_start >= time_limit:
+                break
+            
         print(root)
         return root
     
