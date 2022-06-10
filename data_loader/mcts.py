@@ -246,7 +246,7 @@ class MCTS:
         else:
             return None
         
-    def run(self, board: chess.Board, time_limit: float=np.inf, verbose=False):
+    def run(self, board: chess.Board, time_limit: float=100000.0, verbose=False):
         
         time_start = time.time() # Start the clock for the time limit, measured in seconds, probably will have to be converted from miliseconds.
         

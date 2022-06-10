@@ -1,6 +1,7 @@
 import sys
 import traceback
 import argparse
+import copy
 
 import torch
 import chess
@@ -9,7 +10,7 @@ import yaml
 
 import model.model as module_arch
 from model.model import AttentionChess2
-from data_loader.mcts import MCTS
+import data_loader.mcts as module_mcts
 from parse_config import ConfigParser
 from utils import prepare_device
 
@@ -26,7 +27,7 @@ NODES = 800
 C = 3.0
 
 
-logfile = open("a0lite.log", "w")
+logfile = open("ac2.log", "w")
 LOG = True
 
 def log(msg):
@@ -67,10 +68,11 @@ def process_position(tokens):
 
 
 
-
-
 def load_network(config):
-
+    '''
+    Loads AttentionChess-2.0 and MCTS instances
+    '''
+    
     log("Loading network")
     
     # build model architecture, then print to console
@@ -81,15 +83,29 @@ def load_network(config):
     model = model.to(device)
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
+        
+    # Resume from checkpoint
+    if config.resume is not None:
+        checkpoint = torch.load(config.resume, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint['state_dict'])
 
     log('Network loaded')
     
-    return model
+    log('Loading MCTS instance')
+    
+    # setup data_loader instances and mcts
+    mcts = config.init_obj('mcts', module_mcts, 
+                           model_good=copy.deepcopy(model), model_evil=copy.deepcopy(model), 
+                           num_sims=config['data_loader']['args']['num_of_sims'])
+    
+    log('Loaded MCTS instance')
+    
+    return model, mcts
 
 
 def main(config):
 
-    send("A0 Lite")
+    send("AttentionChess-2.0")
     board = chess.Board()
     nn = None
 
@@ -109,7 +125,7 @@ def main(config):
             exit(0)
         elif tokens[0] == "isready":
             if nn == None:
-                nn = load_network(config)
+                nn, mcts = load_network(config)
             send("readyok")
         elif tokens[0] == "ucinewgame":
             board = chess.Board()
@@ -144,23 +160,34 @@ def main(config):
                 else:
                     my_time = btime/(TIMEDIV*1000.0)
                 if my_time < MINTIME:
-                    my_time = MINTIME
+                    my_time = MINTIME   
             if nn == None:
                 nn = load_network()
 
 
             if my_time != None:
-                best, score = search.UCT_search(board, 1000000, net=nn, C=C, max_time=my_time, send=send)
+                mcts.num_sims = 1000000
+                root = mcts.run(time_limit=my_time, board=board)
+                score = root.value_avg() * 100
+                best_san = root.select_action()
+                best = board.parse_san(best_san).uci()
             else:
-                best, score = search.UCT_search(board, my_nodes, net=nn, C=C, send=send)
+                mcts.num_sims = my_nodes
+                root = mcts.run(board=board)
+                score = root.value_avg() * 100
+                best_san = root.select_action()
+                best = board.parse_san(best_san).uci()
             send("bestmove {}".format(best))
 
 if __name__ == '__main__':
+    
+    torch.multiprocessing.set_start_method('spawn')  # Necessary for this to work; maybe it will run out of memory like that
+    
     args = argparse.ArgumentParser()
-    args.add_argument('-c', '--config', default='config/config.yaml', type=str,
+    args.add_argument('-c', '--config', default='config/config_uci.yaml', type=str,
                     help='config file path (default: config/config.yaml)')
-    args.add_argument('-r', '--resume', default=None, type=str,
-                    help='path to latest checkpoint (default: None)')
+    args.add_argument('-r', '--resume', default='model_post_fsp.pth', type=str,
+                    help='path to latest checkpoint (default: model_post_fsp.pth)')
     args.add_argument('-d', '--device', default=None, type=str,
                     help='indices of GPUs to enable (default: all)')
     config = ConfigParser.from_args(args)
