@@ -168,15 +168,16 @@ def main(config):
             if my_time != None:
                 mcts.num_sims = 1000000
                 root = mcts.run(time_limit=my_time, board=board)
-                score = root.value_avg() * 100
+                score = root.value_avg() * 1000.0
                 best_san = root.select_action()
                 best = board.parse_san(best_san).uci()
             else:
                 mcts.num_sims = my_nodes
                 root = mcts.run(board=board)
-                score = root.value_avg() * 100
+                score = root.value_avg() * 1000.0
                 best_san = root.select_action()
                 best = board.parse_san(best_san).uci()
+            send("info score cp {}".format(int(score)))
             send("bestmove {}".format(best))
 
 if __name__ == '__main__':
@@ -192,12 +193,3 @@ if __name__ == '__main__':
                     help='indices of GPUs to enable (default: all)')
     config = ConfigParser.from_args(args)
     main(config)
-
-
-# try:
-#     main()
-# except:
-#     exc_type, exc_value, exc_tb = sys.exc_info()
-#     log(traceback.format_exception(exc_type, exc_value, exc_tb))
-
-# logfile.close()

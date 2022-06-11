@@ -15,7 +15,8 @@ class FullSelfPlayDataset(Dataset):
                  mcts: MCTS,
                  num_of_sims: int=100, 
                  min_counts: int=10, 
-                 simultaneous_mcts: int=32, 
+                 simultaneous_mcts: int=32,
+                 simultaneous_mcts_pre_generated: int=64, 
                  move_limit: int=300, 
                  buffer_size: int=1e5,
                  ignore_loss_lim: float=1.0):
@@ -28,7 +29,7 @@ class FullSelfPlayDataset(Dataset):
         # Initiate variables from outside
         self.num_of_sims: int = num_of_sims
         self.min_counts: int = min_counts
-        self.simultaneous_mcts: int = simultaneous_mcts
+        self.simultaneous_mcts: int = simultaneous_mcts_pre_generated # Generate moves from a larger batch to fill the memory buffer.
         self.move_limit: int = move_limit
         self.buffer_size: int = buffer_size
         self.ignore_loss_lim: float = ignore_loss_lim
@@ -47,6 +48,8 @@ class FullSelfPlayDataset(Dataset):
             self.load_game()
             print_size = self.buffer['board'].size()[0]
             print(f'Current number of positions: {print_size}')
+            
+        self.simultaneous_mcts = simultaneous_mcts
         
     def __getitem__(self, sample_idx):
         

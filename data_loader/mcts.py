@@ -175,9 +175,9 @@ def ucb_scores(parent: Node, children: Dict[str, Node], dir_noise: bool=False):
     """
     The score for an action that would transition between the parent and child.
     """
-    c_puct = 1.0
-    dir_alpha = 0.35
-    x_dir = 0.6
+    c_puct = 3.5
+    dir_alpha = 0.15
+    x_dir = 0.85
     
     prior_scores = {move: child.prior_prob * math.sqrt(parent.visit_count) / (child.visit_count + 1) for move, child in children.items()}
     

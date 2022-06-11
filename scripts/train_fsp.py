@@ -38,7 +38,7 @@ def main(config):
         
     # Resume from checkpoint
     if config.resume is not None:
-        checkpoint = torch.load(config.resume, map_location=torch.device('cpu'))
+        checkpoint = torch.load(config.resume)
         model.load_state_dict(checkpoint['state_dict'])
 
     # get function handles of loss and metrics

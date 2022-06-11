@@ -15,7 +15,8 @@ arch:
 data_loader: 
     type: "FullSelfPlayLoader"
     args:
-        simultaneous_mcts: 32
+        simultaneous_mcts_pre_generated: 64
+        simultaneous_mcts: 4
         batch_size: 128
         shuffle: true
         validation_split: 0.0
@@ -73,7 +74,7 @@ trainer:
     epochs: 100000
 
     save_dir: "saved/"
-    save_period: 3
+    save_period: 5
     verbosity: 2
     
     monitor: "min val_loss"
