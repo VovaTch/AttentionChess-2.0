@@ -1,12 +1,14 @@
+import asyncio
+
 import chess
 import torch
 from torch.utils.data import Dataset
 from colorama import Fore
 
 from utils.util import is_game_end
-from data_loader.mcts import MCTS
+from data_loader.async_mcts import MCTS
 
-class FullSelfPlayDataset(Dataset):
+class FullSelfPlayAsyncDataset(Dataset):
     
     def __init__(self, 
                  mcts: MCTS,
@@ -18,6 +20,9 @@ class FullSelfPlayDataset(Dataset):
                  buffer_size: int=1e5,
                  ignore_loss_lim: float=1.0):
         super().__init__()
+        
+        # Initialize event loop
+        self.loop = asyncio.get_event_loop()
         
         # Initiate engines, will later assert that they aren't empty.
         self.white_engine = None
@@ -41,10 +46,16 @@ class FullSelfPlayDataset(Dataset):
             'value': torch.zeros((0))
         }
         self.follow_idx = 0
+        
+        # Trying here the asynchronous mcts
+        background_tasks = set()
+        
         while self.buffer['board'].size()[0] < self.buffer_size:
-            self.load_game()
+            task = asyncio.create_task(self.load_game())
+            background_tasks.add(task)
             print_size = self.buffer['board'].size()[0]
             print(f'Current number of positions: {print_size}')
+            task.add_done_callback(background_tasks.discard)
             
         self.simultaneous_mcts = simultaneous_mcts
         
@@ -68,60 +79,49 @@ class FullSelfPlayDataset(Dataset):
                 'value': sampled_value, 
                 'win': sampled_win}
     
-    def load_game(self):
+    async def load_game(self):
         """
-        Batch game running method
+        Async loading of a game; maybe it will be faster than the vanilla run_multiple?
         """
         
-        # Setting up simultaneous boards
-        boards = [chess.Board() for _ in range(self.simultaneous_mcts)]
+        board = chess.Board()
         
         for move_idx in range(self.move_limit):
             
-            # Perform MCTS for each node per search
-            sample_nodes_ending_tuples = [(is_game_end(board)) for board in boards]
-            self._count_results(sample_nodes_ending_tuples)
-            boards_active = [boards[idx] for idx in range(len(boards)) if not sample_nodes_ending_tuples[idx][0]]
-            if len(boards_active) == 0: # Get out of the loop if all games have ended.
+            # Perform MCTS for the selected node
+            game_end, _ = is_game_end(board)
+            if game_end:
                 break
-                
+        
             # if white and black engines are available, overwrite the current engines in the mcts.
             if self.white_engine is not None and self.black_engine is not None:
-                color_white_flag = boards_active[0].turn
+                color_white_flag = board.turn
                 self.mcts.model_good = self.white_engine if color_white_flag else self.black_engine
                 self.mcts.model_evil = self.black_engine if color_white_flag else self.white_engine
                 
-            sample_nodes = self.mcts.run_multi(boards_active)
+            root_node = await self.mcts.run(board)
             
-            # Collect all individual data from the nodes
-            for sample_node in sample_nodes:
+            # Collect all the data from the training
+            board_collection, policy_collection, value_collection = self.mcts.collect_nodes_for_training(root_node, 
+                                                                                            min_counts=self.min_counts)
+            
+            # Collect data for variables
+            self.buffer['board'] = torch.cat((self.buffer['board'], board_collection.to('cpu')), dim=0)
+            self.buffer['policy'] = torch.cat((self.buffer['policy'], policy_collection.to('cpu')), dim=0)
+            if self.buffer['value'].nelement == 0:
+                self.buffer['value'] = value_collection
+            else:
+                self.buffer['value'] = torch.cat((self.buffer['value'], value_collection.to('cpu')), dim=0)
                 
-                
-                # TODO: Activate CUDA
-                board_collection, policy_collection, value_collection = self.mcts.collect_nodes_for_training(sample_node, 
-                                                                                                min_counts=self.min_counts)
-                
-                # Collect data for variables
-                self.buffer['board'] = torch.cat((self.buffer['board'], board_collection.to('cpu')), dim=0)
-                self.buffer['policy'] = torch.cat((self.buffer['policy'], policy_collection.to('cpu')), dim=0)
-                if self.buffer['value'].nelement == 0:
-                    self.buffer['value'] = value_collection
-                else:
-                    self.buffer['value'] = torch.cat((self.buffer['value'], value_collection.to('cpu')), dim=0)
-                    
-                # Prune if the buffer size exceeds the limit
-                if self.buffer['board'].size()[0] > self.buffer_size:
-                    self.buffer['board'] = self.buffer['board'][-self.buffer_size:, :, :, :]
-                    self.buffer['policy'] = self.buffer['policy'][-self.buffer_size:, :]
-                    self.buffer['value'] = self.buffer['value'][-self.buffer_size:]
-                
-            # Push and print the moves
-            samples = [sample_node.select_action(temperature=0.25) for sample_node in sample_nodes]
-            sample_string = ', '.join(samples)
-            print(f'[FullSelfPlay]: Pushed moves: ' + Fore.YELLOW + sample_string + Fore.RESET + f'\tMove: {(move_idx + 2) // 2}')
-            for idx, board in enumerate(boards_active):
-                board.push_san(samples[idx])
-            boards = boards_active
+            # Prune if the buffer size exceeds the limit
+            if self.buffer['board'].size()[0] > self.buffer_size:
+                self.buffer['board'] = self.buffer['board'][-self.buffer_size:, :, :, :]
+                self.buffer['policy'] = self.buffer['policy'][-self.buffer_size:, :]
+                self.buffer['value'] = self.buffer['value'][-self.buffer_size:]
+            
+            sample = root_node.select_action(temperature=0.25)
+            print(f'[AsyncFSP]: Pushed sample for move {(move_idx + 2) // 2}: {sample}')
+            board.push_san(sample)
             
             
     @staticmethod

@@ -30,7 +30,8 @@ class Trainer(BaseTrainer):
         self.do_validation = self.valid_data_loader is not None
         self.lr_scheduler = lr_scheduler
         self.log_step = int(np.sqrt(data_loader.batch_size))
-        self.self_play_flag = True if config['data_loader']['type'] in 'FullSelfPlayLoader' else False
+        self.self_play_flag = True if config['data_loader']['type'] in ['FullSelfPlayLoader'] else False
+        self.swarm_flag = True if config['data_loader']['type'] in ['SwarmSelfPlayLoader'] else False
 
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
@@ -87,6 +88,8 @@ class Trainer(BaseTrainer):
             if self.self_play_flag:
                 self.data_loader.dataset.mcts.good_model = copy.deepcopy(self.model)
                 self.data_loader.dataset.mcts.evil_model = copy.deepcopy(self.model)
+            if self.swarm_flag:
+                self.data_loader.dataset.engine = copy.deepcopy(self.model)
             
         log = self.train_metrics.result()
 

@@ -13,26 +13,17 @@ arch:
         device: "cuda:0"
 
 data_loader: 
-    type: "FullSelfPlayAsyncLoader"
+    type: "SwarmSelfPlayLoader"
     args:
-        simultaneous_mcts_pre_generated: 4
-        simultaneous_mcts: 4
+        simultaneous_games: 64
         batch_size: 64
         shuffle: true
         validation_split: 0.0
         num_workers: 0
-        num_of_sims: 400
-        min_counts: 200
-        move_limit: 300
-        buffer_size: 20000
-        ignore_loss_sim: 1.0
-
-mcts:
-    type: "MCTS"
-    args:
-        use_dir: true
-        device: "cuda:0"
-
+        move_limit: 400
+        buffer_size: 100000
+        base_multiplier: 0.95
+        win_only: true
     
 optimizer: 
     type: "AdamW"
@@ -67,7 +58,7 @@ lr_scheduler:
     args:
         max_lr: 0.001
         epochs: 1
-        steps_per_epoch: 20000
+        steps_per_epoch: 100000
 
 trainer: 
 

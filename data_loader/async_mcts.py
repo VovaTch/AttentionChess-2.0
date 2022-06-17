@@ -1,10 +1,10 @@
 from typing import Dict, List
 import time
+import asyncio
 
 import torch
 import torch.nn.functional as F
 import chess
-import copy
 import numpy as np
 import math
 
@@ -231,7 +231,7 @@ class MCTS:
         self.board_value_vec = torch.zeros(0).to(self.device)
         
     @torch.no_grad()
-    def run_engine(self, boards: List[chess.Board]):
+    async def run_engine(self, boards: List[chess.Board]):
         out_dict = self.model_good(boards) if self.model_good_flag else self.model_evil(boards)
         policy_list, value_list = self.model_good.post_process(boards, out_dict)
         return policy_list, value_list
@@ -246,7 +246,7 @@ class MCTS:
         else:
             return None
         
-    def run(self, board: chess.Board, time_limit: float=100000.0, verbose=False):
+    async def run(self, board: chess.Board, time_limit: float=100000.0, verbose=False):
         
         time_start = time.time() # Start the clock for the time limit, measured in seconds, probably will have to be converted from miliseconds.
         
@@ -254,7 +254,7 @@ class MCTS:
         root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
         
         # Expand the root node
-        policy_list, _ = self.run_engine([board])
+        policy_list, _ = await self.run_engine([board])
         root.expand(policy_list[0])
         
         for _ in range(self.num_sims):
@@ -275,7 +275,7 @@ class MCTS:
             
             if value is None:
                 # Expand if game not ended
-                policy_list, value_list = self.run_engine([next_board])
+                policy_list, value_list = await self.run_engine([next_board])
                 node.expand(policy_list[0])
                 value = value_list[0]
             else:
@@ -430,16 +430,15 @@ class MCTS:
                 prior_board = node.board.copy(stack=True)
                 prior_board.pop()
                 last_move = prior_board.san(node.board.peek())
-                search_path[node_idx - 1].value_candidates[last_move] = math.tanh(math.atanh(value * value_multiplier * -1))
                 
-                # if search_path[node_idx - 1].value_candidates[last_move] is None:
-                #     search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
+                if search_path[node_idx - 1].value_candidates[last_move] is None:
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
                 
-                # elif not node.board.turn and search_path[node_idx - 1].value_candidates[last_move] > value * value_multiplier:   
-                #     search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
+                elif not node.board.turn and search_path[node_idx - 1].value_candidates[last_move] > value * value_multiplier:   
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
                     
-                # elif node.board.turn and search_path[node_idx - 1].value_candidates[last_move] < value * value_multiplier:    
-                #     search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
+                elif node.board.turn and search_path[node_idx - 1].value_candidates[last_move] < value * value_multiplier:    
+                    search_path[node_idx - 1].value_candidates[last_move] = math.atanh(value * value_multiplier * -1)
             
             node.visit_count += 1
             value = math.tanh(math.atanh(value) * -value_multiplier)
