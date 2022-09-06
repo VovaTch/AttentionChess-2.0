@@ -9,3 +9,4 @@ labml-nn
 pygame
 jmespath
 pyyaml
+pandas
