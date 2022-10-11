@@ -13,10 +13,10 @@ arch:
         device: "cuda:0"
 
 data_loader: 
-    type: "FullSelfPlayAsyncLoader"
+    type: "FullSelfPlayLoader"
     args:
-        simultaneous_mcts_pre_generated: 4
-        simultaneous_mcts: 4
+        simultaneous_mcts_pre_generated: 64
+        simultaneous_mcts: 16
         batch_size: 64
         shuffle: true
         validation_split: 0.0
@@ -24,7 +24,7 @@ data_loader:
         num_of_sims: 400
         min_counts: 200
         move_limit: 300
-        buffer_size: 20000
+        buffer_size: 50000
         ignore_loss_sim: 1.0
 
 mcts:

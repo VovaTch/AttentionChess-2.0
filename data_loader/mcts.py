@@ -1,3 +1,4 @@
+from tabnanny import check
 from typing import Dict, List
 import time
 
@@ -246,18 +247,33 @@ class MCTS:
         else:
             return None
         
-    def run(self, board: chess.Board, time_limit: float=100000.0, verbose=False):
+    def run(self, board: chess.Board, checkpoint_node: Node=None, time_limit: float=100000.0, verbose=False):
         
         time_start = time.time() # Start the clock for the time limit, measured in seconds, probably will have to be converted from miliseconds.
         
         self.model_good_flag = True
-        root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
         
-        # Expand the root node
-        policy_list, _ = self.run_engine([board])
-        root.expand(policy_list[0])
+        if checkpoint_node is None:
+            root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
+            
+            # Expand the root node
+            policy_list, _ = self.run_engine([board])
+            root.expand(policy_list[0])
+            
+            num_sims_actual = self.num_sims
+            
+        else:
+            
+            root = checkpoint_node
+            num_sims_actual = self.num_sims - root.visit_count
+            
+            if not root.expanded():
+                # Expand the root node
+                policy_list, _ = self.run_engine([root.board])
+                root.expand(policy_list[0])
         
-        for _ in range(self.num_sims):
+        print(num_sims_actual)
+        for _ in range(num_sims_actual):
             node = root
             search_path = [node]
             

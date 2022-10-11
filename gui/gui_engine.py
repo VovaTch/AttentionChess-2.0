@@ -91,6 +91,7 @@ class GameState:
 
         move_word = move_coor_from + 64 * move_coor_to
         move_chess = word_to_move(int(move_word + 1e-6))
+        move_san = self.board.san(move_chess)
         move_performed_flag = self.make_move_uci(move_chess)
         
         if move_performed_flag:
@@ -102,7 +103,7 @@ class GameState:
                 if self.convert_embedding_to_piece(pieces_captured_enc) != '-':
                     self.cap_black.append(self.convert_embedding_to_piece(pieces_captured_enc))
 
-        return move_performed_flag
+        return move_performed_flag, move_san
     
     def make_move_uci(self, move_chess):
         
