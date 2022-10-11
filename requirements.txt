@@ -9,4 +9,8 @@ labml-nn
 pygame
 jmespath
 pyyaml
+<<<<<<< HEAD
 pandas
+=======
+pandas
+>>>>>>> 728db0d87f80c21177026c507c87f051d1c4f979
