@@ -311,7 +311,6 @@ def main(args, config):
     undo_flag = False
     flip_board = False
     endgame_flag = False
-    input_root = None
 
     # game loop
     running = True
@@ -352,9 +351,8 @@ def main(args, config):
                         policy_list, _ = engine.post_process([gs.board], output_dict, print_output=True)
                         best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
                     else:
-                        output_root = mcts.run(gs.board) if input_root is None else mcts.run(None, checkpoint_node=input_root)
+                        output_root = mcts.run(gs.board)
                         best_move = output_root.select_action(temperature=args.temperature, print_action_count=False)
-                        input_root = output_root.children[best_move]
                     gs.make_move_san(best_move)
 
                     animate_move(screen, gs, args, gs.board.peek(), clock, flip_board)
@@ -411,18 +409,13 @@ def main(args, config):
                     else:
                         promotion_flag = False
 
-                    valid_move, move_human = gs.make_move_mouse(player_clicks, promotion=selected_piece, flip_board=flip_board)
+                    valid_move = gs.make_move_mouse(player_clicks, promotion=selected_piece, flip_board=flip_board)
                     selected_piece = None
                     if not valid_move:
                         print('[WARN] Illegal move!!!')
                     else:
                         animate_move(screen, gs, args, gs.board.peek(), clock, flip_board=flip_board)
                         undo_flag = False
-                        if input_root is not None:
-                            if not input_root.expanded():
-                                policy_list, _ = mcts.run_engine([input_root.board])
-                                input_root.expand(policy_list[0])
-                            input_root = input_root.children[move_human]
                         
                     sq_selected = ()  # Zero out the player inputs
                     if not promotion_flag:

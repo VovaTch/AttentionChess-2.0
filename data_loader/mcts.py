@@ -223,6 +223,7 @@ class MCTS:
         self.model_good_flag = True
         self.device = device
         self.use_dir = use_dir
+        self.root_node = Node(chess.Board(), prior_prob=1)
         
         self.model_good.to(self.device)
         self.model_evil.to(self.device)
@@ -247,33 +248,27 @@ class MCTS:
         else:
             return None
         
-    def run(self, board: chess.Board, checkpoint_node: Node=None, time_limit: float=100000.0, verbose=False):
+    def run(self, board: chess.Board, time_limit: float=100000.0, verbose=False):
         
         time_start = time.time() # Start the clock for the time limit, measured in seconds, probably will have to be converted from miliseconds.
         
         self.model_good_flag = True
+        root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
         
-        if checkpoint_node is None:
-            root = Node(board, 0.0, device=self.device, use_dir=self.use_dir)
-            
-            # Expand the root node
+        # Check if new board exists within the old tree already
+        root_new = self._equal_to_root(self.root_node, board)
+        if root_new is not None:
+            root = root_new
+        
+        # Expand the root node
+        if not root.expanded():
             policy_list, _ = self.run_engine([board])
             root.expand(policy_list[0])
             
-            num_sims_actual = self.num_sims
-            
-        else:
-            
-            root = checkpoint_node
-            num_sims_actual = self.num_sims - root.visit_count
-            
-            if not root.expanded():
-                # Expand the root node
-                policy_list, _ = self.run_engine([root.board])
-                root.expand(policy_list[0])
+        num_todo_visits = self.num_sims - root.visit_count
+        print(num_todo_visits)
         
-        print(num_sims_actual)
-        for _ in range(num_sims_actual):
+        for _ in range(num_todo_visits):
             node = root
             search_path = [node]
             
@@ -306,8 +301,8 @@ class MCTS:
             
             if time.time() - time_start >= time_limit:
                 break
-            
-        print(root)
+
+        self.root_node = copy.deepcopy(root)
         return root
     
     
@@ -490,6 +485,27 @@ class MCTS:
         policy_vector = F.normalize(policy_vector, p=1)
         return policy_vector
             
+    def _equal_to_root(self, node: Node, board: chess.Board):
+        '''
+        Finds whether a node exists in the root tree
+        '''
+    
+        # Checks if the current node is equal to the board
+        fen_board = board.fen()
+        fen_node = node.board.fen()
+        if fen_board == fen_node:
+            return node
+        
+        # Check if children have the board recursively
+        for child_key in node.children:
+            new_root = self._equal_to_root(node.children[child_key], board)
+            if new_root is not None:
+                return new_root
+            
+        # If no board is found, return None
+        return None
+            
+    
 
 def _is_game_end(board: chess.Board):
     """Checks if the game ends."""
