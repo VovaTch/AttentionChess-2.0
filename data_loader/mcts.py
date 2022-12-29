@@ -1,4 +1,3 @@
-from tabnanny import check
 from typing import Dict, List
 import time
 
@@ -10,7 +9,7 @@ import numpy as np
 import math
 
 from model.model import AttentionChess2
-from utils import move_to_word, word_to_move
+from utils import move_to_word
 from utils.chess_util import board_to_representation
 
 

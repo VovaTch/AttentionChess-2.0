@@ -24,7 +24,7 @@ data_loader:
         num_of_sims: 400
         min_counts: 200
         move_limit: 300
-        buffer_size: 50000
+        buffer_size: 200000
         ignore_loss_sim: 1.0
 
 mcts:

@@ -352,6 +352,7 @@ def main(args, config):
                         best_move = max(policy_list[0], key=lambda key: policy_list[0][key])
                     else:
                         output_root = mcts.run(gs.board)
+                        print(output_root)
                         best_move = output_root.select_action(temperature=args.temperature, print_action_count=False)
                     gs.make_move_san(best_move)
 
